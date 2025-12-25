@@ -4,9 +4,10 @@
 # AI-Driven SDLC 管理工具（精簡版）
 # 内容生成とレビューはClaude Code slash commandsを使用
 
-set -e
+# Note: Do NOT use 'set -e' in CLI tools - handle errors explicitly
+# set -e causes unexpected exits for commands with non-zero status
 
-VERSION="2.0.0"
+VERSION="2.0.1"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SDLC_DIR="${SCRIPT_DIR}/sdlc"
 TEMPLATES_DIR="${SDLC_DIR}/templates"
@@ -18,6 +19,125 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
+
+# Safe .metadata parser
+# Prevents arbitrary code execution from malicious .metadata files
+# Usage: load_metadata "/path/to/feature/dir"
+# Sets global variables: FEATURE_ID, RISK_LEVEL, STATUS, etc.
+load_metadata() {
+    local metadata_file="$1/.metadata"
+
+    if [[ ! -f "$metadata_file" ]]; then
+        print_error ".metadata file not found: $metadata_file"
+        return 1
+    fi
+
+    # Reset variables to avoid pollution
+    unset FEATURE_ID RISK_LEVEL STATUS CREATED_DATE DECISION_STATUS ISSUE_URL BRANCH
+    unset REVISION_COUNT LAST_UPDATED
+
+    # Parse .metadata line by line safely (no code execution)
+    while IFS='=' read -r key value; do
+        # Skip comments and empty lines
+        [[ "$key" =~ ^[[:space:]]*# ]] && continue
+        [[ -z "$key" ]] && continue
+
+        # Remove leading/trailing whitespace
+        key=$(echo "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+        value=$(echo "$value" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+
+        # Validate key format (alphanumeric and underscore only)
+        if [[ ! "$key" =~ ^[A-Z_][A-Z0-9_]*$ ]]; then
+            print_warning "Skipping invalid key in .metadata: $key"
+            continue
+        fi
+
+        # Assign to variables safely
+        case "$key" in
+            FEATURE_ID) FEATURE_ID="$value" ;;
+            RISK_LEVEL) RISK_LEVEL="$value" ;;
+            STATUS) STATUS="$value" ;;
+            CREATED_DATE) CREATED_DATE="$value" ;;
+            DECISION_STATUS) DECISION_STATUS="$value" ;;
+            ISSUE_URL) ISSUE_URL="$value" ;;
+            BRANCH) BRANCH="$value" ;;
+            REVISION_COUNT) REVISION_COUNT="$value" ;;
+            LAST_UPDATED) LAST_UPDATED="$value" ;;
+            REVISION_*)
+                # Handle REVISION_N_DATE, REVISION_N_MAKER, etc.
+                eval "$key=\"\$value\""
+                ;;
+            *)
+                print_warning "Unknown metadata key: $key"
+                ;;
+        esac
+    done < "$metadata_file"
+
+    # Validate required fields
+    if [[ -z "$FEATURE_ID" ]]; then
+        print_error "Missing required field: FEATURE_ID"
+        return 1
+    fi
+
+    return 0
+}
+
+# Validate feature ID format
+# Prevents path traversal attacks
+# Returns 0 if valid, 1 if invalid
+validate_feature_id() {
+    local feature_id="$1"
+
+    # Feature ID must match FEATURE-NNN format or similar
+    # No path separators, no special characters
+    if [[ ! "$feature_id" =~ ^[A-Z]+-[0-9]+$ ]]; then
+        print_error "Invalid feature ID format: '$feature_id'"
+        print_info "Feature ID must match format: FEATURE-123"
+        return 1
+    fi
+
+    # Additional check: no path traversal attempts
+    if [[ "$feature_id" == *".."* ]] || [[ "$feature_id" == *"/"* ]]; then
+        print_error "Security: Path traversal detected in feature ID"
+        return 1
+    fi
+
+    return 0
+}
+
+# Safe arithmetic using awk (no bc dependency)
+# Usage: calc "10 / 3" -> 3.33
+calc() {
+    awk "BEGIN {printf \"%.1f\", $1}"
+}
+
+# Safe comparison using awk
+# Usage: compare "3.5 > 2" -> returns 0 if true, 1 if false
+compare() {
+    awk "BEGIN {exit !($1)}"
+}
+
+# Portable sed in-place edit
+# Works on both GNU and BSD sed
+safe_sed_inplace() {
+    local pattern="$1"
+    local file="$2"
+
+    # Create temp file
+    local tmp_file="${file}.tmp.$$"
+
+    sed "$pattern" "$file" > "$tmp_file" || {
+        rm -f "$tmp_file"
+        return 1
+    }
+
+    mv "$tmp_file" "$file" || {
+        rm -f "$tmp_file"
+        return 1
+    }
+
+    return 0
+}
 
 print_info() {
     echo -e "${BLUE}ℹ${NC} $1"
@@ -104,19 +224,27 @@ show_status() {
 
     if [[ -z "$feature_id" ]]; then
         print_error "Feature IDが必要です"
-        exit 1
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
     fi
 
     local feature_dir="${FEATURES_DIR}/${feature_id}"
 
     if [[ ! -d "$feature_dir" ]]; then
         print_error "Feature ${feature_id} が見つかりません"
-        exit 1
+        return 1
     fi
 
     print_header "Feature ${feature_id} のステータス"
 
-    source "${feature_dir}/.metadata"
+    # Load metadata safely (no code execution)
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
 
     # ========================================
     # 基本情報
@@ -275,19 +403,27 @@ validate_feature() {
 
     if [[ -z "$feature_id" ]]; then
         print_error "Feature IDが必要です"
-        exit 1
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
     fi
 
     local feature_dir="${FEATURES_DIR}/${feature_id}"
 
     if [[ ! -d "$feature_dir" ]]; then
         print_error "Feature ${feature_id} が見つかりません"
-        exit 1
+        return 1
     fi
 
     print_header "Feature ${feature_id} の検証（治理チェックリスト）"
 
-    source "${feature_dir}/.metadata"
+    # Load metadata safely
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
 
     local errors=0
     local warnings=0
@@ -362,8 +498,7 @@ validate_feature() {
                 ((passed++))
 
                 # Update metadata
-                sed -i.bak 's/DECISION_STATUS=.*/DECISION_STATUS=confirmed/' "${feature_dir}/.metadata"
-                rm -f "${feature_dir}/.metadata.bak"
+                safe_sed_inplace 's/DECISION_STATUS=.*/DECISION_STATUS=confirmed/' "${feature_dir}/.metadata" 2>/dev/null || true
             else
                 print_error "Decision Status: ${decision_status}（実装フェーズでは CONFIRMED が必要）"
                 print_info "  → /sdlc-decision ${feature_id} を実行してください"
@@ -564,19 +699,27 @@ check_feature() {
 
     if [[ -z "$feature_id" ]]; then
         print_error "Feature IDが必要です"
-        exit 1
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
     fi
 
     local feature_dir="${FEATURES_DIR}/${feature_id}"
 
     if [[ ! -d "$feature_dir" ]]; then
         print_error "Feature ${feature_id} が見つかりません"
-        exit 1
+        return 1
     fi
 
     print_header "Feature ${feature_id} のチェック"
 
-    source "${feature_dir}/.metadata"
+    # Load metadata safely
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
 
     local errors=0
 
@@ -629,16 +772,25 @@ list_features() {
 
     for feature_dir in "${FEATURES_DIR}"/*; do
         if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
-            source "${feature_dir}/.metadata"
+            # Load metadata safely (skip invalid entries)
+            if load_metadata "${feature_dir}" 2>/dev/null; then
+                local feature_name=$(basename "$feature_dir")
 
-            local feature_name=$(basename "$feature_dir")
-
-            printf "%-20s %-10s %-15s %-12s %s\n" \
-                "$feature_name" \
-                "$RISK_LEVEL" \
-                "$STATUS" \
-                "$DECISION_STATUS" \
-                "$CREATED_DATE"
+                printf "%-20s %-10s %-15s %-12s %s\n" \
+                    "$feature_name" \
+                    "${RISK_LEVEL:-unknown}" \
+                    "${STATUS:-unknown}" \
+                    "${DECISION_STATUS:-unknown}" \
+                    "${CREATED_DATE:-unknown}"
+            else
+                local feature_name=$(basename "$feature_dir")
+                printf "%-20s %-10s %-15s %-12s %s\n" \
+                    "$feature_name" \
+                    "ERROR" \
+                    "ERROR" \
+                    "ERROR" \
+                    "ERROR"
+            fi
         fi
     done
 }
@@ -651,23 +803,31 @@ update_decision() {
     if [[ -z "$feature_id" ]] || [[ -z "$decision_status" ]]; then
         print_error "Feature IDとDecisionステータスが必要です"
         echo "使用方法: sdlc-cli decision <feature-id> <pending|confirmed|revised>"
-        exit 1
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
     fi
 
     if [[ ! "$decision_status" =~ ^(pending|confirmed|revised)$ ]]; then
         print_error "Decisionステータスは pending, confirmed, revised のいずれかです"
-        exit 1
+        return 1
     fi
 
     local feature_dir="${FEATURES_DIR}/${feature_id}"
 
     if [[ ! -d "$feature_dir" ]]; then
         print_error "Feature ${feature_id} が見つかりません"
-        exit 1
+        return 1
     fi
 
-    sed -i.bak "s/DECISION_STATUS=.*/DECISION_STATUS=${decision_status}/" "${feature_dir}/.metadata"
-    rm -f "${feature_dir}/.metadata.bak"
+    # Use safe sed replacement
+    if ! safe_sed_inplace "s/DECISION_STATUS=.*/DECISION_STATUS=${decision_status}/" "${feature_dir}/.metadata"; then
+        print_error "Failed to update .metadata"
+        return 1
+    fi
 
     print_success "Feature ${feature_id} のDecisionステータスを ${decision_status} に更新"
 
@@ -684,26 +844,37 @@ update_risk() {
     if [[ -z "$feature_id" ]] || [[ -z "$risk_level" ]]; then
         print_error "Feature IDとリスクレベルが必要です"
         echo "使用方法: sdlc-cli risk <feature-id> <low|medium|high>"
-        exit 1
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
     fi
 
     if [[ ! "$risk_level" =~ ^(low|medium|high)$ ]]; then
         print_error "リスクレベルは low, medium, high のいずれかです"
-        exit 1
+        return 1
     fi
 
     local feature_dir="${FEATURES_DIR}/${feature_id}"
 
     if [[ ! -d "$feature_dir" ]]; then
         print_error "Feature ${feature_id} が見つかりません"
-        exit 1
+        return 1
     fi
 
-    source "${feature_dir}/.metadata"
+    # Load metadata to get old risk level
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
     local old_risk=$RISK_LEVEL
 
-    sed -i.bak "s/RISK_LEVEL=.*/RISK_LEVEL=${risk_level}/" "${feature_dir}/.metadata"
-    rm -f "${feature_dir}/.metadata.bak"
+    # Use safe sed replacement
+    if ! safe_sed_inplace "s/RISK_LEVEL=.*/RISK_LEVEL=${risk_level}/" "${feature_dir}/.metadata"; then
+        print_error "Failed to update .metadata"
+        return 1
+    fi
 
     print_success "リスクレベルを ${old_risk} から ${risk_level} に更新"
 
@@ -748,7 +919,10 @@ generate_report() {
 
     for feature_dir in "${FEATURES_DIR}"/*; do
         if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
-            source "${feature_dir}/.metadata"
+            # Load metadata safely (skip invalid entries)
+            if ! load_metadata "${feature_dir}" 2>/dev/null; then
+                continue
+            fi
             ((total++))
 
             # Risk Level
@@ -848,10 +1022,10 @@ generate_report() {
     echo "  Decision Revision:   ${revision_count}件"
 
     if [[ $revision_count -gt 0 ]]; then
-        local avg_revision=$(echo "scale=1; $revision_count / $total" | bc)
-        if (( $(echo "$avg_revision > 2" | bc -l) )); then
+        local avg_revision=$(calc "$revision_count / $total")
+        if compare "$avg_revision > 2"; then
             echo -e "  ${RED}平均 Revision/Feature: ${avg_revision}${NC} (要注意)"
-        elif (( $(echo "$avg_revision > 1" | bc -l) )); then
+        elif compare "$avg_revision > 1"; then
             echo -e "  ${YELLOW}平均 Revision/Feature: ${avg_revision}${NC}"
         else
             echo -e "  ${GREEN}平均 Revision/Feature: ${avg_revision}${NC}"
@@ -871,9 +1045,11 @@ generate_report() {
     local features_with_issue=0
     for feature_dir in "${FEATURES_DIR}"/*; do
         if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
-            source "${feature_dir}/.metadata"
-            if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
-                ((features_with_issue++))
+            # Load metadata safely
+            if load_metadata "${feature_dir}" 2>/dev/null; then
+                if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
+                    ((features_with_issue++))
+                fi
             fi
         fi
     done
@@ -915,8 +1091,8 @@ generate_report() {
 
     # Check 4: Revision 頻度
     if [[ $total -gt 0 ]]; then
-        local avg_revision=$(echo "scale=1; $revision_count / $total" | bc)
-        if (( $(echo "$avg_revision <= 1.5" | bc -l) )); then
+        local avg_revision=$(calc "$revision_count / $total")
+        if compare "$avg_revision <= 1.5"; then
             echo -e "  ${GREEN}✓${NC} Revision 頻度: 正常範囲"
         else
             echo -e "  ${YELLOW}⚠${NC} Revision 頻度: 高め (設計品質の見直しを推奨)"
