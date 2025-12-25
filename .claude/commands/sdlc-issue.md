@@ -56,23 +56,40 @@ FEATURE-TBD
 
 ### 3. GitHub Issue 作成
 
+まず、Feature ID を `FEATURE-TBD` として Issue を作成：
+
 ```bash
-gh issue create \
+issue_url=$(gh issue create \
   --title "[FEATURE] {タイトル}" \
   --body "{生成した内容}" \
-  --label "feature"
+  --label "feature")
 ```
 
-### 4. 完了メッセージ
+Issue 番号を取得：
+```bash
+issue_number=$(echo "$issue_url" | grep -o '[0-9]*$')
+```
+
+### 4. Feature ID を更新
+
+Issue 本文の `FEATURE-TBD` を `FEATURE-{issue_number}` に更新：
+
+```bash
+gh issue view "$issue_number" --json body -q .body | \
+  sed "s/FEATURE-TBD/FEATURE-$issue_number/g" | \
+  gh issue edit "$issue_number" --body-file -
+```
+
+### 5. 完了メッセージ
 
 ```
 ✅ GitHub Issue を作成しました
 
-Issue: https://github.com/owner/repo/issues/123
-Feature ID: FEATURE-123
+Issue: https://github.com/owner/repo/issues/{issue_number}
+Feature ID: FEATURE-{issue_number}
 
 次のステップ:
-/sdlc-init https://github.com/owner/repo/issues/123
+/sdlc-init https://github.com/owner/repo/issues/{issue_number}
 ```
 
 ---
