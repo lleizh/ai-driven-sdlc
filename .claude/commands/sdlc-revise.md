@@ -52,10 +52,75 @@
 
 ### 3. 関連ファイルを更新
 
-- `risks.md` → 新リスクを追加
-- `30_implementation_plan.md` → 冒頭に警告追加
-- `20_design.md` → リビジョンマーク追加
-- `.metadata` → 履歴記録
+#### 3.1 `risks.md` の更新（New Risks がある場合）
+
+**追加位置**: "Detailed Risk Analysis" セクションの末尾
+
+**フォーマット**: `sdlc/templates/risks.md` の Risk 詳細セクションに従う
+
+**追加フィールド**: 
+```markdown
+**Introduced By**: Decision Revision #{連番}
+```
+
+**同時更新**: ファイル冒頭の "Risk Assessment Summary" テーブルにも新行を追加
+
+#### 3.2 `30_implementation_plan.md` の更新
+
+ファイル冒頭（`# Implementation Plan` の前）に Revision Alert を追加：
+
+```markdown
+> ⚠️ **Revision Alert**: This plan was revised on {DATE} due to design changes.  
+> See [Decision Revision #{N}](decisions.md#decision-revision-{N}) for details.
+```
+
+**複数回 Revision の場合**: 既存の Alert の下に追加
+
+#### 3.3 `20_design.md` の更新（存在する場合）
+
+**Status の更新**:
+```markdown
+**Status**: APPROVED → REVISED
+```
+
+**Revision History の追加**:
+ファイル末尾（`## References` の前）に追加：
+
+```markdown
+---
+
+## Revision History
+
+### Revision #{連番} - {DATE}
+**Decision Maker**: {名前}  
+**Reason**: {Why Revise}  
+**Changes**: {What Changed}  
+**Impact Scope**: {Impact Scope}  
+**Related Decision**: [Decision Revision #{連番}](decisions.md#decision-revision-{連番})
+```
+
+**複数回 Revision の場合**: 新しいエントリを末尾に追加
+
+#### 3.4 `.metadata` の更新
+
+以下のフィールドを追加/更新：
+
+```bash
+REVISION_COUNT={N}
+REVISION_{N}_DATE={YYYY-MM-DD}
+REVISION_{N}_MAKER={Decision Maker}
+REVISION_{N}_REASON={Why Revise の1行要約}
+DECISION_STATUS=revised
+LAST_UPDATED={YYYY-MM-DD}
+```
+
+**例** (2回目の Revision):
+```bash
+REVISION_COUNT=2
+REVISION_2_DATE=2025-12-25
+REVISION_2_MAKER=Jane Smith
+REVISION_2_REASON=External API changed
+```
 
 ### 4. 完了メッセージ
 
