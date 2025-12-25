@@ -1,0 +1,103 @@
+# Command: /sdlc-revise
+
+実装中に設計の前提が崩れた場合、Decision を修正し影響範囲を記録します。
+
+## 使用方法
+
+```
+/sdlc-revise <feature-id>
+```
+
+実行時、以下の情報を入力してください：
+- **Why Revise**（なぜ変更が必要か）
+- **What Changed**（何を変更したか）
+- **Impact Scope**（影響範囲：ファイル/モジュール名）
+- **New Risks**（新しく発生したリスク）
+- **Decision Maker**（あなたの名前）
+
+## 実行内容
+
+### 1. 前提条件チェック
+
+- ✅ Feature が存在する
+- ✅ `decisions.md` が **CONFIRMED** 状態
+- ✅ 実装フェーズである
+
+### 2. REVISED エントリを追加
+
+`decisions.md` に以下を**追記**（元の CONFIRMED は残す）：
+
+```markdown
+---
+
+## Decision Revision {連番}
+
+**Status**: REVISED
+**Date**: {今日の日付}
+**Decision Maker**: {名前}
+
+### Why Revise（変更理由）
+{ユーザー入力}
+
+### What Changed（変更内容）
+**Before**: {元の決定}
+**After**: {新しい決定}
+
+### Impact Scope（影響範囲）
+{ユーザー入力}
+
+### Accepted Risks
+{新たに受け入れるリスク}
+```
+
+### 3. 関連ファイルを更新
+
+- `risks.md` → 新リスクを追加
+- `30_implementation_plan.md` → 冒頭に警告追加
+- `20_design.md` → リビジョンマーク追加
+- `.metadata` → 履歴記録
+
+### 4. 完了メッセージ
+
+```
+✅ Decision Revision {連番} を記録しました
+
+⚠️ 次のアクション:
+1. チームに変更内容を共有
+2. 必要に応じて: /sdlc-impl-plan {FEATURE_ID}
+3. 影響範囲のコードをレビュー
+```
+
+---
+
+## 制約
+
+- 元の CONFIRMED decision は削除しない（追記のみ）
+- 自動でコードを修正しない
+- Revision は例外処理（頻発する場合は設計見直し）
+
+---
+
+## いつ使うべきか
+
+✅ **使うべき場合**：
+- 技術的制約が後から判明
+- 外部サービスの仕様変更
+- 実装中に設計の欠陥が判明
+
+❌ **使わない場合**：
+- 単なるリファクタリング
+- 新機能の追加（スコープクリープ）
+- 軽微なバグ修正
+
+### Revision 頻度の目安
+- **0-1回**: 健全
+- **2-3回**: 要注意
+- **4回以上**: 設計の根本的な見直しが必要
+
+---
+
+## エラー処理
+
+- Feature 不存在 → `❌ /sdlc-init を先に実行`
+- decisions.md が PENDING → `❌ /sdlc-decision を先に実行`

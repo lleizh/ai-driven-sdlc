@@ -24,6 +24,19 @@
 
 以下のセクションを含む Markdown を生成：
 
+**📖 レビュアーへ：必読ファイル（最小セット）**
+```
+✅ 必読（これだけ読めばOK）:
+  - Issue（GitHub）
+  - decisions.md（PENDING 状態）
+  - risks.md
+  - 20_design.md（DRAFT 状態、存在する場合）
+
+📎 参考（optional）:
+  - 00_context.md
+  - 10_requirements.md
+```
+
 **🎯 目標**（3行以内）
 - Context の Goals から抽出
 

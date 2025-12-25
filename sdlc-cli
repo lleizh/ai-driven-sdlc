@@ -98,7 +98,7 @@ EOF
 
 
 
-# Show feature status
+# Show feature status (with phase tracking)
 show_status() {
     local feature_id=$1
 
@@ -118,14 +118,117 @@ show_status() {
 
     source "${feature_dir}/.metadata"
 
+    # ========================================
+    # 基本情報
+    # ========================================
     echo "基本情報:"
     echo "  Feature ID:         ${feature_id}"
+    echo "  Issue URL:          ${ISSUE_URL:-未設定}"
     echo "  リスクレベル:       ${RISK_LEVEL}"
-    echo "  ステータス:         ${STATUS}"
     echo "  作成日:             ${CREATED_DATE}"
-    echo "  Decisionステータス: ${DECISION_STATUS}"
     echo ""
 
+    # ========================================
+    # フェーズ進捗（治理視点）
+    # ========================================
+    echo "フェーズ進捗:"
+
+    # Phase 1: Planning
+    if [[ -f "${feature_dir}/00_context.md" ]] && [[ -s "${feature_dir}/00_context.md" ]]; then
+        echo -e "  ${GREEN}✓${NC} 1. Planning    - Context 作成済み"
+    else
+        echo -e "  ${YELLOW}◐${NC} 1. Planning    - Context 作成中"
+    fi
+
+    # Phase 2: Design
+    local decision_status=$(grep "^Status:" "${feature_dir}/decisions.md" 2>/dev/null | head -1 | awk '{print $2}')
+    if [[ "$decision_status" == "CONFIRMED" ]] || [[ "$decision_status" == "REVISED" ]]; then
+        echo -e "  ${GREEN}✓${NC} 2. Design      - Decision CONFIRMED"
+    elif [[ "$decision_status" == "PENDING" ]]; then
+        echo -e "  ${YELLOW}◐${NC} 2. Design      - Decision PENDING (レビュー中)"
+    else
+        echo -e "  ${YELLOW}○${NC} 2. Design      - Decision 未確定"
+    fi
+
+    # Phase 3: Implementation
+    if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
+        if [[ "$STATUS" == "implementing" ]] || [[ "$STATUS" == "implemented" ]]; then
+            echo -e "  ${GREEN}✓${NC} 3. Implement   - 実装中/完了"
+        else
+            echo -e "  ${YELLOW}◐${NC} 3. Implement   - 実装計画作成済み"
+        fi
+    else
+        echo -e "  ${YELLOW}○${NC} 3. Implement   - 未開始"
+    fi
+
+    # Phase 4: Review
+    if [[ -f "${feature_dir}/40_review_findings.md" ]] && [[ -s "${feature_dir}/40_review_findings.md" ]]; then
+        local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null || echo "0")
+        if [[ $blocking_count -gt 0 ]]; then
+            echo -e "  ${RED}⚠${NC} 4. Review      - MUST_FIX 問題あり (${blocking_count}件)"
+        else
+            echo -e "  ${GREEN}✓${NC} 4. Review      - レビュー完了"
+        fi
+    else
+        echo -e "  ${YELLOW}○${NC} 4. Review      - 未実施"
+    fi
+
+    echo ""
+
+    # ========================================
+    # 治理チェックリスト（簡易版）
+    # ========================================
+    echo "治理チェックリスト（簡易）:"
+
+    local checks_passed=0
+    local checks_total=0
+
+    # Check 1: Issue URL
+    ((checks_total++))
+    if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
+        echo -e "  ${GREEN}✓${NC} Issue URL 設定済み"
+        ((checks_passed++))
+    else
+        echo -e "  ${RED}✗${NC} Issue URL 未設定"
+    fi
+
+    # Check 2: Risks
+    ((checks_total++))
+    local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+    if [[ $risk_count -gt 0 ]]; then
+        echo -e "  ${GREEN}✓${NC} リスク記録済み (${risk_count}個)"
+        ((checks_passed++))
+    else
+        echo -e "  ${RED}✗${NC} リスク未記録"
+    fi
+
+    # Check 3: Decision Status
+    ((checks_total++))
+    if [[ "$decision_status" == "CONFIRMED" ]] || [[ "$decision_status" == "REVISED" ]]; then
+        echo -e "  ${GREEN}✓${NC} Decision 確定済み"
+        ((checks_passed++))
+    else
+        echo -e "  ${YELLOW}○${NC} Decision 未確定 (${decision_status:-PENDING})"
+    fi
+
+    # Check 4: Implementation Plan (for Medium/High Risk)
+    if [[ "$RISK_LEVEL" != "low" ]]; then
+        ((checks_total++))
+        if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
+            echo -e "  ${GREEN}✓${NC} 実装計画作成済み"
+            ((checks_passed++))
+        else
+            echo -e "  ${YELLOW}○${NC} 実装計画未作成 (${RISK_LEVEL} リスク)"
+        fi
+    fi
+
+    echo ""
+    echo "  合格率: ${checks_passed}/${checks_total}"
+    echo ""
+
+    # ========================================
+    # ドキュメント一覧
+    # ========================================
     echo "ドキュメント:"
     for doc in "${feature_dir}"/*.md; do
         if [[ -f "$doc" ]]; then
@@ -144,14 +247,29 @@ show_status() {
     done
     echo ""
 
-    if [[ "$DECISION_STATUS" == "confirmed" ]]; then
-        print_success "実装開始可能 (Decision CONFIRMED)"
+    # ========================================
+    # 次のアクション提案
+    # ========================================
+    print_info "次のアクション:"
+
+    if [[ -z "$ISSUE_URL" ]] || [[ "$ISSUE_URL" == "https://github.com/owner/repo/issues/" ]]; then
+        echo "  → .metadata の ISSUE_URL を設定"
+    elif [[ $risk_count -eq 0 ]]; then
+        echo "  → risks.md にリスクを記録"
+    elif [[ "$decision_status" != "CONFIRMED" ]] && [[ "$decision_status" != "REVISED" ]]; then
+        echo "  → /sdlc-pr-design ${feature_id} で Design Review を開始"
+        echo "  → レビュー後、/sdlc-decision ${feature_id} で Decision を確定"
+    elif [[ ! -f "${feature_dir}/30_implementation_plan.md" ]] && [[ "$RISK_LEVEL" != "low" ]]; then
+        echo "  → /sdlc-impl-plan ${feature_id} で実装計画を生成"
+    elif [[ "$STATUS" == "implementing" ]] && [[ ! -f "${feature_dir}/40_review_findings.md" ]]; then
+        echo "  → /sdlc-check ${feature_id} で実装を検証"
+        echo "  → /sdlc-pr-code ${feature_id} で Implementation PR を作成"
     else
-        print_warning "実装開始不可 (Decision が ${DECISION_STATUS})"
+        echo "  → sdlc-cli validate ${feature_id} で詳細な検証を実行"
     fi
 }
 
-# Validate feature
+# Validate feature (Governance Checklist)
 validate_feature() {
     local feature_id=$1
 
@@ -167,49 +285,275 @@ validate_feature() {
         exit 1
     fi
 
-    print_header "Feature ${feature_id} の検証"
+    print_header "Feature ${feature_id} の検証（治理チェックリスト）"
 
     source "${feature_dir}/.metadata"
 
     local errors=0
+    local warnings=0
+    local passed=0
+    local total=0
 
-    print_info "Decisionを検証中..."
+    # ========================================
+    # ✓ Check 1: Issue URL の存在
+    # ========================================
+    ((total++))
+    print_info "[1/8] Issue URL の確認..."
 
-    if grep -q "Status.*: CONFIRMED" "${feature_dir}/decisions.md" 2>/dev/null; then
-        print_success "DecisionがCONFIRMEDです"
-
-        # Update metadata
-        sed -i.bak 's/DECISION_STATUS=.*/DECISION_STATUS=confirmed/' "${feature_dir}/.metadata"
-        rm -f "${feature_dir}/.metadata.bak"
-
-        print_success "実装を開始できます"
+    if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
+        print_success "Issue URL: ${ISSUE_URL}"
+        ((passed++))
     else
-        print_error "DecisionがCONFIRMEDではありません"
-        print_info "decisions.mdでStatusをCONFIRMEDにしてください"
+        print_error "Issue URL が設定されていません"
+        print_info "  → .metadata の ISSUE_URL を設定してください"
         ((errors++))
     fi
 
+    # ========================================
+    # ✓ Check 2: risks.md の存在と内容
+    # ========================================
+    ((total++))
     echo ""
-    print_info "Riskを検証中..."
+    print_info "[2/8] risks.md の確認..."
 
-    if [[ -s "${feature_dir}/risks.md" ]]; then
-        local risk_count=$(grep -c "Risk R[0-9]" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
-        if [[ $risk_count -gt 0 ]]; then
-            print_success "${risk_count}個のリスクが記録されています"
-        else
-            print_warning "リスクが記録されていません"
-        fi
+    if [[ ! -f "${feature_dir}/risks.md" ]]; then
+        print_error "risks.md が存在しません"
+        ((errors++))
+    elif [[ ! -s "${feature_dir}/risks.md" ]]; then
+        print_error "risks.md が空です"
+        ((errors++))
     else
-        print_warning "risks.mdが空です"
+        local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+        if [[ $risk_count -gt 0 ]]; then
+            print_success "risks.md 存在（${risk_count}個のリスク記録）"
+            ((passed++))
+
+            # Check if top risks are identified
+            local top_risk_count=$(grep -E "Risk Level.*: (High|Medium)" "${feature_dir}/risks.md" 2>/dev/null | wc -l | xargs)
+            if [[ $top_risk_count -gt 0 ]]; then
+                print_info "  → Top risks: ${top_risk_count}個"
+            else
+                print_warning "  → High/Medium リスクが記録されていません"
+                ((warnings++))
+            fi
+        else
+            print_error "リスクが記録されていません"
+            ((errors++))
+        fi
     fi
 
+    # ========================================
+    # ✓ Check 3: decisions.md の CONFIRMED（実装フェーズの場合）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[3/8] decisions.md のステータス確認..."
+
+    if [[ ! -f "${feature_dir}/decisions.md" ]]; then
+        print_error "decisions.md が存在しません"
+        ((errors++))
+    else
+        local decision_status=$(grep "^Status:" "${feature_dir}/decisions.md" | head -1 | awk '{print $2}')
+
+        if [[ "$STATUS" == "implementing" ]] || [[ "$STATUS" == "implemented" ]]; then
+            # 実装フェーズでは CONFIRMED が必須
+            if [[ "$decision_status" == "CONFIRMED" ]] || [[ "$decision_status" == "REVISED" ]]; then
+                print_success "Decision Status: ${decision_status}"
+                ((passed++))
+
+                # Update metadata
+                sed -i.bak 's/DECISION_STATUS=.*/DECISION_STATUS=confirmed/' "${feature_dir}/.metadata"
+                rm -f "${feature_dir}/.metadata.bak"
+            else
+                print_error "Decision Status: ${decision_status}（実装フェーズでは CONFIRMED が必要）"
+                print_info "  → /sdlc-decision ${feature_id} を実行してください"
+                ((errors++))
+            fi
+        else
+            # 設計フェーズでは PENDING も許容
+            if [[ -n "$decision_status" ]]; then
+                print_success "Decision Status: ${decision_status}（設計フェーズ）"
+                ((passed++))
+            else
+                print_warning "Decision Status が設定されていません"
+                ((warnings++))
+            fi
+        fi
+    fi
+
+    # ========================================
+    # ✓ Check 4: design.md が FROZEN（decisions CONFIRMED の場合）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[4/8] 20_design.md のステータス確認..."
+
+    if [[ "$RISK_LEVEL" == "low" ]]; then
+        print_info "  → Low Risk のため設計文書は不要"
+        ((passed++))
+    elif [[ ! -f "${feature_dir}/20_design.md" ]]; then
+        if [[ "$RISK_LEVEL" == "medium" ]]; then
+            print_warning "20_design.md が存在しません（Medium Risk では推奨）"
+            ((warnings++))
+        else
+            print_error "20_design.md が存在しません（High Risk では必須）"
+            ((errors++))
+        fi
+    else
+        local design_status=$(grep "^Status:" "${feature_dir}/20_design.md" | head -1 | awk '{print $2}')
+
+        if [[ "$DECISION_STATUS" == "confirmed" ]]; then
+            if [[ "$design_status" == "FROZEN" ]]; then
+                print_success "Design Status: FROZEN"
+                ((passed++))
+            else
+                print_error "Design Status: ${design_status}（Decision CONFIRMED 後は FROZEN が必要）"
+                print_info "  → /sdlc-decision で自動的に FROZEN になります"
+                ((errors++))
+            fi
+        else
+            print_success "Design Status: ${design_status:-DRAFT}（Decision 確定前）"
+            ((passed++))
+        fi
+    fi
+
+    # ========================================
+    # ✓ Check 5: 30_implementation_plan.md の存在（中/高リスク）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[5/8] 30_implementation_plan.md の確認..."
+
+    if [[ "$RISK_LEVEL" == "low" ]]; then
+        print_info "  → Low Risk のため実装計画は不要"
+        ((passed++))
+    elif [[ "$RISK_LEVEL" == "medium" ]]; then
+        if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
+            print_success "30_implementation_plan.md 存在"
+            ((passed++))
+        else
+            print_warning "30_implementation_plan.md が存在しません（Medium Risk では推奨）"
+            print_info "  → /sdlc-impl-plan ${feature_id} で生成"
+            ((warnings++))
+        fi
+    else
+        # High Risk
+        if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
+            print_success "30_implementation_plan.md 存在"
+            ((passed++))
+        else
+            print_error "30_implementation_plan.md が存在しません（High Risk では必須）"
+            print_info "  → /sdlc-impl-plan ${feature_id} で生成"
+            ((errors++))
+        fi
+    fi
+
+    # ========================================
+    # ✓ Check 6: 40_review_findings.md の存在（PR前）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[6/8] 40_review_findings.md の確認（PR前チェック）..."
+
+    if [[ "$STATUS" == "implementing" ]] || [[ "$STATUS" == "implemented" ]]; then
+        if [[ -f "${feature_dir}/40_review_findings.md" ]] && [[ -s "${feature_dir}/40_review_findings.md" ]]; then
+            print_success "40_review_findings.md 存在"
+            ((passed++))
+
+            # Check for blocking issues
+            local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null || echo "0")
+            if [[ $blocking_count -gt 0 ]]; then
+                print_error "  → MUST_FIX の問題が ${blocking_count} 件あります"
+                ((errors++))
+            fi
+        else
+            print_warning "40_review_findings.md が存在しません（PR前に実行推奨）"
+            print_info "  → /sdlc-check ${feature_id} で生成"
+            ((warnings++))
+        fi
+    else
+        print_info "  → 実装前のためスキップ"
+        ((passed++))
+    fi
+
+    # ========================================
+    # ✓ Check 7: 50_test_plan.md の存在（中/高リスク）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[7/8] 50_test_plan.md の確認..."
+
+    if [[ "$RISK_LEVEL" == "low" ]]; then
+        print_info "  → Low Risk のためテスト計画は不要"
+        ((passed++))
+    elif [[ -f "${feature_dir}/50_test_plan.md" ]] && [[ -s "${feature_dir}/50_test_plan.md" ]]; then
+        print_success "50_test_plan.md 存在"
+        ((passed++))
+    else
+        if [[ "$RISK_LEVEL" == "high" ]]; then
+            print_error "50_test_plan.md が存在しません（High Risk では必須）"
+            ((errors++))
+        else
+            print_warning "50_test_plan.md が存在しません（Medium Risk では推奨）"
+            ((warnings++))
+        fi
+    fi
+
+    # ========================================
+    # ✓ Check 8: 60_release_plan.md の存在（高リスク）
+    # ========================================
+    ((total++))
+    echo ""
+    print_info "[8/8] 60_release_plan.md の確認..."
+
+    if [[ "$RISK_LEVEL" == "high" ]]; then
+        if [[ -f "${feature_dir}/60_release_plan.md" ]] && [[ -s "${feature_dir}/60_release_plan.md" ]]; then
+            print_success "60_release_plan.md 存在"
+            ((passed++))
+        else
+            print_error "60_release_plan.md が存在しません（High Risk では必須）"
+            ((errors++))
+        fi
+    else
+        print_info "  → Low/Medium Risk のためリリース計画は不要"
+        ((passed++))
+    fi
+
+    # ========================================
+    # Summary
+    # ========================================
+    echo ""
+    print_header "検証結果サマリー"
+
+    echo "治理チェックリスト:"
+    echo "  ✓ 合格: ${passed}/${total}"
+    echo "  ⚠ 警告: ${warnings}"
+    echo "  ✗ 失敗: ${errors}"
     echo ""
 
-    if [[ $errors -eq 0 ]]; then
-        print_success "検証完了"
+    if [[ $errors -eq 0 ]] && [[ $warnings -eq 0 ]]; then
+        print_success "すべてのチェックに合格しました 🎉"
+        echo ""
+        print_info "次のアクション:"
+        if [[ "$STATUS" == "planning" ]]; then
+            echo "  1. /sdlc-pr-design ${feature_id} で Design Review PR を作成"
+        elif [[ "$STATUS" == "designing" ]]; then
+            echo "  1. Design Review を完了"
+            echo "  2. /sdlc-decision ${feature_id} で Decision を確定"
+        elif [[ "$STATUS" == "implementing" ]]; then
+            echo "  1. /sdlc-check ${feature_id} で実装を検証"
+            echo "  2. /sdlc-pr-code ${feature_id} で Implementation PR を作成"
+        fi
+        return 0
+    elif [[ $errors -eq 0 ]]; then
+        print_warning "警告がありますが、続行可能です"
+        echo ""
+        print_info "警告を解決することを推奨します"
         return 0
     else
-        print_error "検証失敗"
+        print_error "必須チェックに失敗しました"
+        echo ""
+        print_info "上記のエラーを修正してから再度実行してください"
         return 1
     fi
 }
@@ -376,47 +720,247 @@ update_risk() {
     fi
 }
 
-# Generate report
+# Generate report (Management Overview)
 generate_report() {
-    print_header "SDLCレポート"
+    print_header "SDLC 管理レポート"
 
     if [[ ! -d "$FEATURES_DIR" ]] || [[ -z "$(ls -A "$FEATURES_DIR" 2>/dev/null)" ]]; then
         print_info "Featureがまだありません"
         return
     fi
 
+    # ========================================
+    # 統計データ収集
+    # ========================================
     local total=0
     local low_risk=0
     local medium_risk=0
     local high_risk=0
     local confirmed=0
+    local planning=0
+    local designing=0
+    local implementing=0
+    local completed=0
+    local blocked=0
+    local revision_count=0
+    local total_risks=0
+    local high_priority_risks=0
 
     for feature_dir in "${FEATURES_DIR}"/*; do
         if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
             source "${feature_dir}/.metadata"
             ((total++))
 
+            # Risk Level
             case "$RISK_LEVEL" in
                 low) ((low_risk++)) ;;
                 medium) ((medium_risk++)) ;;
                 high) ((high_risk++)) ;;
             esac
 
+            # Decision Status
             if [[ "$DECISION_STATUS" == "confirmed" ]]; then
                 ((confirmed++))
+            fi
+
+            # Phase
+            case "$STATUS" in
+                planning) ((planning++)) ;;
+                designing) ((designing++)) ;;
+                implementing) ((implementing++)) ;;
+                completed) ((completed++)) ;;
+                blocked) ((blocked++)) ;;
+            esac
+
+            # Revisions
+            if [[ -f "${feature_dir}/decisions.md" ]]; then
+                local revisions=$(grep -c "^## Decision Revision" "${feature_dir}/decisions.md" 2>/dev/null || echo "0")
+                revision_count=$((revision_count + revisions))
+            fi
+
+            # Risks
+            if [[ -f "${feature_dir}/risks.md" ]]; then
+                local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+                total_risks=$((total_risks + risks))
+
+                local high_risks=$(grep -E "Risk Level.*: High" "${feature_dir}/risks.md" 2>/dev/null | wc -l | xargs)
+                high_priority_risks=$((high_priority_risks + high_risks))
             fi
         fi
     done
 
-    echo "統計:"
-    echo "  総Feature数:        ${total}"
-    echo "  低リスク:           ${low_risk}"
-    echo "  中リスク:           ${medium_risk}"
-    echo "  高リスク:           ${high_risk}"
-    echo "  Decision確定済み:   ${confirmed}"
+    # ========================================
+    # サマリー表示
+    # ========================================
+    echo "📊 Feature サマリー"
+    echo "────────────────────────────────────────"
+    echo "  総Feature数:         ${total}"
+    echo "  完了:                ${completed}"
+    echo "  実装中:              ${implementing}"
+    echo "  設計中:              ${designing}"
+    echo "  計画中:              ${planning}"
+    if [[ $blocked -gt 0 ]]; then
+        echo -e "  ${RED}ブロック中:          ${blocked}${NC}"
+    fi
     echo ""
 
-    print_info "詳細は 'sdlc-cli list' で確認"
+    # ========================================
+    # リスク分布
+    # ========================================
+    echo "⚠️  リスク分布"
+    echo "────────────────────────────────────────"
+    echo "  Low Risk:            ${low_risk}"
+    echo "  Medium Risk:         ${medium_risk}"
+    if [[ $high_risk -gt 0 ]]; then
+        echo -e "  ${YELLOW}High Risk:           ${high_risk}${NC}"
+    else
+        echo "  High Risk:           ${high_risk}"
+    fi
+    echo ""
+    echo "  総リスク記録数:      ${total_risks}"
+    if [[ $high_priority_risks -gt 0 ]]; then
+        echo -e "  ${RED}High 優先度リスク:   ${high_priority_risks}${NC}"
+    else
+        echo "  High 優先度リスク:   ${high_priority_risks}"
+    fi
+    echo ""
+
+    # ========================================
+    # 治理メトリクス
+    # ========================================
+    echo "🔍 治理メトリクス"
+    echo "────────────────────────────────────────"
+    echo "  Decision 確定済み:   ${confirmed}/${total}"
+
+    local decision_rate=0
+    if [[ $total -gt 0 ]]; then
+        decision_rate=$((confirmed * 100 / total))
+    fi
+
+    if [[ $decision_rate -ge 80 ]]; then
+        echo -e "  ${GREEN}Decision 確定率:     ${decision_rate}%${NC}"
+    elif [[ $decision_rate -ge 50 ]]; then
+        echo -e "  ${YELLOW}Decision 確定率:     ${decision_rate}%${NC}"
+    else
+        echo -e "  ${RED}Decision 確定率:     ${decision_rate}%${NC}"
+    fi
+
+    echo "  Decision Revision:   ${revision_count}件"
+
+    if [[ $revision_count -gt 0 ]]; then
+        local avg_revision=$(echo "scale=1; $revision_count / $total" | bc)
+        if (( $(echo "$avg_revision > 2" | bc -l) )); then
+            echo -e "  ${RED}平均 Revision/Feature: ${avg_revision}${NC} (要注意)"
+        elif (( $(echo "$avg_revision > 1" | bc -l) )); then
+            echo -e "  ${YELLOW}平均 Revision/Feature: ${avg_revision}${NC}"
+        else
+            echo -e "  ${GREEN}平均 Revision/Feature: ${avg_revision}${NC}"
+        fi
+    fi
+    echo ""
+
+    # ========================================
+    # 健全性チェック
+    # ========================================
+    echo "✅ プロセス健全性"
+    echo "────────────────────────────────────────"
+
+    local health_issues=0
+
+    # Check 1: Feature に Issue URL があるか
+    local features_with_issue=0
+    for feature_dir in "${FEATURES_DIR}"/*; do
+        if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
+            source "${feature_dir}/.metadata"
+            if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
+                ((features_with_issue++))
+            fi
+        fi
+    done
+
+    local issue_rate=$((features_with_issue * 100 / total))
+    if [[ $issue_rate -ge 90 ]]; then
+        echo -e "  ${GREEN}✓${NC} Issue URL 設定率: ${issue_rate}%"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Issue URL 設定率: ${issue_rate}% (Iron Rule 1 違反の可能性)"
+        ((health_issues++))
+    fi
+
+    # Check 2: Decision 確定率
+    if [[ $decision_rate -ge 80 ]]; then
+        echo -e "  ${GREEN}✓${NC} Decision 確定率: ${decision_rate}%"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Decision 確定率: ${decision_rate}% (Iron Rule 2 準拠を確認)"
+        ((health_issues++))
+    fi
+
+    # Check 3: Risk 記録率
+    local features_with_risks=0
+    for feature_dir in "${FEATURES_DIR}"/*; do
+        if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/risks.md" ]]; then
+            local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+            if [[ $risks -gt 0 ]]; then
+                ((features_with_risks++))
+            fi
+        fi
+    done
+
+    local risk_rate=$((features_with_risks * 100 / total))
+    if [[ $risk_rate -ge 90 ]]; then
+        echo -e "  ${GREEN}✓${NC} Risk 記録率: ${risk_rate}%"
+    else
+        echo -e "  ${YELLOW}⚠${NC} Risk 記録率: ${risk_rate}% (Iron Rule 3 違反の可能性)"
+        ((health_issues++))
+    fi
+
+    # Check 4: Revision 頻度
+    if [[ $total -gt 0 ]]; then
+        local avg_revision=$(echo "scale=1; $revision_count / $total" | bc)
+        if (( $(echo "$avg_revision <= 1.5" | bc -l) )); then
+            echo -e "  ${GREEN}✓${NC} Revision 頻度: 正常範囲"
+        else
+            echo -e "  ${YELLOW}⚠${NC} Revision 頻度: 高め (設計品質の見直しを推奨)"
+            ((health_issues++))
+        fi
+    fi
+
+    echo ""
+
+    if [[ $health_issues -eq 0 ]]; then
+        print_success "プロセスは健全です 🎉"
+    else
+        print_warning "${health_issues}件の健全性問題が検出されました"
+    fi
+
+    echo ""
+
+    # ========================================
+    # 推奨アクション
+    # ========================================
+    print_info "推奨アクション:"
+
+    if [[ $planning -gt 0 ]]; then
+        echo "  → ${planning}件の Feature が計画中（Design Review を進める）"
+    fi
+
+    if [[ $designing -gt 0 ]]; then
+        echo "  → ${designing}件の Feature が設計中（Decision 確定を進める）"
+    fi
+
+    if [[ $blocked -gt 0 ]]; then
+        echo -e "  ${RED}→ ${blocked}件の Feature がブロック中（優先的に解決）${NC}"
+    fi
+
+    if [[ $issue_rate -lt 90 ]]; then
+        echo "  → Issue URL が未設定の Feature を確認"
+    fi
+
+    if [[ $risk_rate -lt 90 ]]; then
+        echo "  → リスクが未記録の Feature を確認"
+    fi
+
+    echo ""
+    print_info "詳細: 'sdlc-cli list' または 'sdlc-cli status <feature-id>'"
 }
 
 # Main

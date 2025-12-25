@@ -87,7 +87,7 @@ git checkout -b feature/FEATURE-123
 
 Claude Code で対話しながら実装：
 ```
-implementation_plan.md の Step 1 を実装してください
+30_implementation_plan.md の Step 1 を実装してください
 ```
 
 ### 7. PR 前チェック
@@ -124,6 +124,7 @@ implementation_plan.md の Step 1 を実装してください
 | `/sdlc-pr-design <feature-id>` | Design Review PR | 文書完成後 |
 | `/sdlc-decision <feature-id>` | Decision 確定 | Team Review 後 |
 | `/sdlc-impl-plan <feature-id>` | 実装計画生成 | Decision 確定後 |
+| `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
 | `/sdlc-check <feature-id>` | 一致性チェック | 実装完了後 |
 | `/sdlc-pr-code <feature-id>` | Implementation PR | チェック通過後 |
 
@@ -131,11 +132,13 @@ implementation_plan.md の Step 1 を実装してください
 
 ## 管理ツール (`sdlc-cli`)
 
+### 基本コマンド
+
 ```bash
 # Feature 一覧
 ./sdlc-cli list
 
-# Feature ステータス
+# Feature ステータス（フェーズ進捗付き）
 ./sdlc-cli status FEATURE-123
 
 # Decision ステータス更新
@@ -154,7 +157,6 @@ implementation_plan.md の Step 1 を実装してください
 ---
 
 ## ディレクトリ構造
-
 ```
 .
 ├── AI_SDLC.md                      # プロセス定義
@@ -192,8 +194,6 @@ implementation_plan.md の Step 1 を実装してください
 
 ---
 
-## リスクレベル別プロセス
-
 ### Low Risk
 - **文書**: Context, Decisions, Risks
 - **Review**: Code Review のみ
@@ -221,6 +221,8 @@ implementation_plan.md の Step 1 を実装してください
 
 ## ワークフロー例
 
+### 標準フロー（Happy Path）
+
 ```bash
 # 1. GitHub で Issue 作成
 # https://github.com/owner/repo/issues/123
@@ -237,6 +239,11 @@ vim decisions.md
 /sdlc-pr-design FEATURE-123
 
 # 5. Team Review（GitHub PR で議論）
+# レビュアーは以下だけ読めばOK（15-30分）:
+#   - Issue (GitHub)
+#   - decisions.md (PENDING)
+#   - risks.md
+#   - 20_design.md (DRAFT、存在する場合)
 
 # 6. Decision 確定
 /sdlc-decision FEATURE-123
@@ -259,6 +266,42 @@ git checkout -b feature/FEATURE-123
 # 12. Code Review & マージ
 ```
 
+### Decision Revision フロー（前提崩壊時）
+
+実装中に「設計の前提が成り立たない」場合：
+
+```bash
+# 実装中に問題発見
+# 例: 外部 API が想定と異なる、技術的制約が判明
+
+# 1. Decision を修正
+/sdlc-revise FEATURE-123
+
+# 入力内容:
+# - Why Revise: なぜ変更が必要か
+# - What Changed: 何を変更したか
+# - Impact Scope: 影響範囲（ファイル/モジュール名）
+# - New Risks: 新しいリスク
+# - Decision Maker: あなたの名前
+
+# 2. 実装計画を再生成（必要に応じて）
+/sdlc-impl-plan FEATURE-123
+
+# 3. チームに共有
+# Slack/メール等で変更内容を通知
+
+# 4. 実装を続行
+# 修正された決定に基づいて実装
+
+# 5. チェック
+/sdlc-check FEATURE-123
+
+# 6. Implementation PR
+/sdlc-pr-code FEATURE-123
+```
+
+**重要**: Revision は例外処理です。頻発する場合は設計の根本的な見直しを検討してください。
+
 ---
 
 ## FAQ
@@ -266,8 +309,17 @@ git checkout -b feature/FEATURE-123
 ### Q: すべての Feature で Design Review が必要？
 **A**: いいえ。Low Risk は Code Review のみ。Medium/High Risk のみ Design Review を実施。
 
+### Q: Design Review は時間がかかる？
+**A**: いいえ。必読は **Issue + decisions.md + risks.md + design.md** の4つのみ（15-30分）。他は optional です。
+
 ### Q: Decision を変更したい場合は？
-**A**: `decisions.md` に REVISED として追記。`/sdlc-impl-plan` で実装計画を再生成。
+**A**: `/sdlc-revise <feature-id>` を使用。理由・変更内容・影響範囲を記録し、`decisions.md` に REVISED として追記されます。
+
+### Q: 実装中に設計の前提が崩れたらどうする？
+**A**: すぐに `/sdlc-revise` を実行。なぜ変更が必要か、何を変えるか、影響範囲を明記してください。頻発する場合は設計を根本から見直すサインです。
+
+### Q: Revision は何回まで許容される？
+**A**: 0-1回は正常、2-3回は要注意、4回以上は設計の見直しを推奨。
 
 ### Q: テンプレートをカスタマイズできる？
 **A**: はい。`sdlc/templates/` 配下のファイルを編集してください。
