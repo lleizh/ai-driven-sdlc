@@ -116,11 +116,13 @@ FILES_TO_COPY=()
 FILES_TO_COPY+=(".github/ISSUE_TEMPLATE/feature.md")
 
 if [[ "$MINIMAL" == false ]]; then
-    # Claude Code commands
+    # Claude Code commands (in workflow order)
+    FILES_TO_COPY+=(".claude/commands/sdlc-issue.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-init.md")
-    FILES_TO_COPY+=(".claude/commands/sdlc-pr-design.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-decision.md")
+    FILES_TO_COPY+=(".claude/commands/sdlc-pr-design.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-impl-plan.md")
+    FILES_TO_COPY+=(".claude/commands/sdlc-coding.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-revise.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-check.md")
     FILES_TO_COPY+=(".claude/commands/sdlc-pr-code.md")
@@ -189,11 +191,13 @@ print_header "インストール中"
 install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TEMPLATE/feature.md"
 
 if [[ "$MINIMAL" == false ]]; then
-    # Install Claude Code commands
+    # Install Claude Code commands (in workflow order)
+    install_file "${SCRIPT_DIR}/.claude/commands/sdlc-issue.md" ".claude/commands/sdlc-issue.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-init.md" ".claude/commands/sdlc-init.md"
-    install_file "${SCRIPT_DIR}/.claude/commands/sdlc-pr-design.md" ".claude/commands/sdlc-pr-design.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-decision.md" ".claude/commands/sdlc-decision.md"
+    install_file "${SCRIPT_DIR}/.claude/commands/sdlc-pr-design.md" ".claude/commands/sdlc-pr-design.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-impl-plan.md" ".claude/commands/sdlc-impl-plan.md"
+    install_file "${SCRIPT_DIR}/.claude/commands/sdlc-coding.md" ".claude/commands/sdlc-coding.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-revise.md" ".claude/commands/sdlc-revise.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-check.md" ".claude/commands/sdlc-check.md"
     install_file "${SCRIPT_DIR}/.claude/commands/sdlc-pr-code.md" ".claude/commands/sdlc-pr-code.md"
