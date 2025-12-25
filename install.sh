@@ -42,12 +42,16 @@ AI-Driven SDLC Installer v${VERSION}
 オプション:
   --minimal       最小構成（Issue テンプレートのみ）
   --no-templates  テンプレートをスキップ
+  --force         既存ファイルを強制上書き
+  --update        既存ファイルごとに上書き確認
   --dry-run       実行せず、コピーされるファイルのみ表示
   --help          このヘルプを表示
 
 例:
-  ./install.sh                    # フルインストール
+  ./install.sh                    # フルインストール（既存ファイルはスキップ）
   ./install.sh --minimal          # Issue テンプレートのみ
+  ./install.sh --force            # 既存ファイルを強制上書き
+  ./install.sh --update           # 既存ファイルごとに確認
   ./install.sh --dry-run          # 確認のみ
 
 EOF
@@ -57,6 +61,8 @@ EOF
 MINIMAL=false
 NO_TEMPLATES=false
 DRY_RUN=false
+FORCE=false
+UPDATE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
@@ -66,6 +72,14 @@ while [[ $# -gt 0 ]]; do
             ;;
         --no-templates)
             NO_TEMPLATES=true
+            shift
+            ;;
+        --force)
+            FORCE=true
+            shift
+            ;;
+        --update)
+            UPDATE=true
             shift
             ;;
         --dry-run)
@@ -105,6 +119,14 @@ if [[ "$MINIMAL" == true ]]; then
     print_info "最小構成でインストールします"
 else
     print_info "フル構成でインストールします"
+fi
+
+if [[ "$FORCE" == true ]]; then
+    print_warning "強制上書きモード: 既存ファイルはすべて上書きされます"
+elif [[ "$UPDATE" == true ]]; then
+    print_info "更新モード: 既存ファイルごとに確認します"
+else
+    print_info "既存ファイルはスキップします"
 fi
 
 echo ""
@@ -157,7 +179,11 @@ install_file() {
     local dst="$2"
 
     if [[ "$DRY_RUN" == true ]]; then
-        print_info "[DRY RUN] $dst"
+        if [[ -f "$dst" ]] || [[ -d "$dst" ]]; then
+            print_info "[DRY RUN] $dst (既存)"
+        else
+            print_info "[DRY RUN] $dst (新規)"
+        fi
         return
     fi
 
@@ -166,8 +192,26 @@ install_file() {
 
     # Check if file exists
     if [[ -f "$dst" ]] || [[ -d "$dst" ]]; then
-        print_warning "$dst は既に存在します（スキップ）"
-        return
+        if [[ "$FORCE" == true ]]; then
+            # Force overwrite
+            print_info "$dst を上書き中..."
+        elif [[ "$UPDATE" == true ]]; then
+            # Ask user
+            read -p "$(echo -e ${YELLOW}?${NC}) $dst は既に存在します。上書きしますか？ (y/n) " -n 1 -r
+            echo
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_warning "$dst をスキップしました"
+                return
+            fi
+            print_info "$dst を上書き中..."
+        else
+            # Skip by default
+            print_warning "$dst は既に存在します（スキップ）"
+            return
+        fi
+
+        # Remove existing file/directory before copying
+        rm -rf "$dst"
     fi
 
     # Copy file or directory
