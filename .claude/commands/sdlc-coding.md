@@ -21,12 +21,27 @@ Decision 確定後、AI が実装を実行します。
 
 ### 2. ブランチ切替
 
-現在のブランチを確認：
-- `design/{FEATURE_ID}` にいる場合：
-  - 変更を commit（未 commit の場合）
-  - `feature/{FEATURE_ID}` ブランチを作成して切替
-  - `design/{FEATURE_ID}` の変更を merge
-- すでに `feature/{FEATURE_ID}` にいる場合：そのまま続行
+Risk Level に応じて分岐：
+
+**低リスク**（すでに `feature/{FEATURE_ID}` にいる場合）：
+- そのまま続行（文書とコードを同じブランチで管理）
+
+**中/高リスク**（`design/{FEATURE_ID}` から切り替える場合）：
+```bash
+# design ブランチの変更を commit（未 commit の場合）
+git add .
+git commit -m "docs: complete design review"
+
+# develop に切り替えて最新を取得
+git checkout develop
+git pull origin develop
+
+# develop から feature ブランチを作成
+git checkout -b feature/{FEATURE_ID}
+```
+
+注：中/高リスクでは、design ドキュメントはすでに develop に merge されている。
+feature ブランチは最新の develop（ドキュメント含む）から作成する。
 
 ### 3. ドキュメント読取
 

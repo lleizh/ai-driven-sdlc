@@ -183,9 +183,7 @@ SDLC CLI v${VERSION} - 管理ツール
                                     level: low|medium|high
 
 検証（CI/CD用）:
-  validate <feature-id>             DecisionとRiskの検証
-
-  check <feature-id>                必須ファイルの存在チェック
+  validate <feature-id>             治理チェックリスト（文書・プロセス検証）
 
 レポート:
   report                            統計レポートを生成
@@ -693,70 +691,6 @@ validate_feature() {
     fi
 }
 
-# Check feature completeness
-check_feature() {
-    local feature_id=$1
-
-    if [[ -z "$feature_id" ]]; then
-        print_error "Feature IDが必要です"
-        return 1
-    fi
-
-    # Validate feature ID format
-    if ! validate_feature_id "$feature_id"; then
-        return 1
-    fi
-
-    local feature_dir="${FEATURES_DIR}/${feature_id}"
-
-    if [[ ! -d "$feature_dir" ]]; then
-        print_error "Feature ${feature_id} が見つかりません"
-        return 1
-    fi
-
-    print_header "Feature ${feature_id} のチェック"
-
-    # Load metadata safely
-    if ! load_metadata "${feature_dir}"; then
-        return 1
-    fi
-
-    local errors=0
-
-    print_info "必須ファイルをチェック中..."
-
-    local required_files=("00_context.md" "decisions.md" "risks.md")
-
-    if [[ "$RISK_LEVEL" == "medium" ]] || [[ "$RISK_LEVEL" == "high" ]]; then
-        required_files+=("10_requirements.md" "20_design.md" "50_test_plan.md")
-    fi
-
-    if [[ "$RISK_LEVEL" == "high" ]]; then
-        required_files+=("30_implementation_plan.md" "60_release_plan.md")
-    fi
-
-    for file in "${required_files[@]}"; do
-        if [[ ! -f "${feature_dir}/${file}" ]]; then
-            print_error "必須ファイルが見つかりません: ${file}"
-            ((errors++))
-        elif [[ ! -s "${feature_dir}/${file}" ]]; then
-            print_warning "${file} が空です"
-        else
-            print_success "${file} OK"
-        fi
-    done
-
-    echo ""
-
-    if [[ $errors -eq 0 ]]; then
-        print_success "すべてのファイルが存在します"
-        return 0
-    else
-        print_error "${errors}個のファイルが不足しています"
-        return 1
-    fi
-}
-
 # List all features
 list_features() {
     print_header "全Feature一覧"
@@ -1152,9 +1086,6 @@ main() {
     case "$command" in
         status)
             show_status "$@"
-            ;;
-        check)
-            check_feature "$@"
             ;;
         validate)
             validate_feature "$@"

@@ -122,15 +122,48 @@ REVISION_2_MAKER=Jane Smith
 REVISION_2_REASON=External API changed
 ```
 
-### 4. 完了メッセージ
+### 4. Revision PR の作成
+
+**ブランチ確認**：
+- 中/高リスクの場合：design/{FEATURE_ID} ブランチに戻る
+- 低リスクの場合：feature/{FEATURE_ID} ブランチのまま
+
+**PR 作成**：
+```bash
+# 中/高リスクの場合
+git checkout design/{FEATURE_ID}
+gh pr create \
+  --title "Revision: {FEATURE_ID} - Decision Revision #{N}" \
+  --body "{Revision の詳細}" \
+  --label "decision-revision" \
+  --base develop
+
+# 低リスクの場合は PR 不要（同じ feature ブランチで続行）
+```
+
+### 5. 完了メッセージ
 
 ```
 ✅ Decision Revision {連番} を記録しました
 
+📋 更新されたファイル:
+- decisions.md (REVISED エントリ追加)
+- risks.md (新リスク追加)
+- 30_implementation_plan.md (Revision Alert 追加)
+- 20_design.md (Status: REVISED)
+- .metadata (REVISION_{N} フィールド追加)
+
 ⚠️ 次のアクション:
+【中/高リスク】
+1. Revision PR をチームレビュー
+2. PR マージ後、develop から最新を取得
+3. 必要に応じて: /sdlc-impl-plan {FEATURE_ID}
+4. feature/{FEATURE_ID} で実装再開
+
+【低リスク】
 1. チームに変更内容を共有
 2. 必要に応じて: /sdlc-impl-plan {FEATURE_ID}
-3. 影響範囲のコードをレビュー
+3. 同じ feature ブランチで実装再開
 ```
 
 ---

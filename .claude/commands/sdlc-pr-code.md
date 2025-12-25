@@ -79,7 +79,7 @@ gh pr create \
   --title "{FEATURE_ID}: {タイトル}" \
   --body "{生成した PR Description}" \
   --label "implementation" \
-  --base main
+  --base develop
 ```
 
 ### 6. 完了メッセージ

@@ -24,11 +24,31 @@ GitHub Issue から SDLC 文書を自動生成します。
    - チェックがなければ labels から判定（`high-risk` → high, `feature` → medium, `bug` → low）
 
 4. **Git ブランチ作成**
+   
+   **前提**: develop ブランチから作成
+   
+   Risk Level に応じて分岐：
+   
+   **低リスク**:
    ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/{FEATURE_ID}
+   ```
+   例: `git checkout -b feature/FEATURE-123`
+   
+   理由：低リスクは Design Review 不要。文書とコードを同じブランチで管理。
+   
+   **中/高リスク**:
+   ```bash
+   git checkout develop
+   git pull origin develop
    git checkout -b design/{FEATURE_ID}
    ```
-   
    例: `git checkout -b design/FEATURE-123`
+   
+   理由：中/高リスクは Design Review 必須。文書を先に design ブランチで Review。
+   後で `/sdlc-coding` 時に develop から feature/{FEATURE_ID} を作成。
 
 5. **ディレクトリ作成**
    ```bash
@@ -39,12 +59,16 @@ GitHub Issue から SDLC 文書を自動生成します。
    ```
    FEATURE_ID={FEATURE_ID}
    RISK_LEVEL={low|medium|high}
-   STATUS=draft
+   STATUS=planning
    CREATED_DATE={YYYY-MM-DD}
    DECISION_STATUS=pending
    ISSUE_URL={Issue URL}
-   BRANCH=design/{FEATURE_ID}
+   BRANCH={feature or design}/{FEATURE_ID}
    ```
+   
+   注：BRANCH は Risk Level に応じて設定
+   - 低リスク: `feature/{FEATURE_ID}`
+   - 中/高リスク: `design/{FEATURE_ID}`
 
 6. **テンプレート読取 & 文書生成**
    
@@ -103,9 +127,17 @@ GitHub Issue から SDLC 文書を自動生成します。
    - 生成ファイル数: {数}
    
    📝 次のステップ:
+   
+   【低リスク】
    1. 生成された文書を確認
-   2. decisions.md をチームでレビュー・決定
-   3. 決定後、`/sdlc-impl-plan` で実装計画を生成
+   2. `/sdlc-decision {ID}` で Decision を確定
+   3. `/sdlc-coding {ID}` で実装開始（同じ feature ブランチ）
+   
+   【中/高リスク】
+   1. 生成された文書を確認
+   2. `/sdlc-pr-design {ID}` で Design Review PR を作成
+   3. Design Review 完了後、`/sdlc-decision {ID}` で Decision を確定
+   4. `/sdlc-coding {ID}` で実装開始（新しい feature ブランチ作成）
    
    ⚠️ 注意:
    - decisions.md の Status は全て PENDING です

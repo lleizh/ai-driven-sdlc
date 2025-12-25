@@ -84,7 +84,7 @@ gh pr create \
   --title "Design: {FEATURE_ID} - {タイトル}" \
   --body "{生成した PR Description}" \
   --label "design-review" \
-  --base main
+  --base develop
 ```
 
 ### 5. 完了メッセージ
