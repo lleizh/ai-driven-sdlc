@@ -116,8 +116,12 @@ FILES_TO_COPY=()
 FILES_TO_COPY+=(".github/ISSUE_TEMPLATE/feature.md")
 
 if [[ "$MINIMAL" == false ]]; then
-    # Claude Code commands (copy entire directory)
-    FILES_TO_COPY+=(".claude/commands/")
+    # Claude Code commands (list all sdlc-*.md files)
+    for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
+        if [[ -f "$cmd_file" ]]; then
+            FILES_TO_COPY+=(".claude/commands/$(basename "$cmd_file")")
+        fi
+    done
 
     # CLI tool
     FILES_TO_COPY+=("sdlc-cli")
@@ -183,8 +187,13 @@ print_header "インストール中"
 install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TEMPLATE/feature.md"
 
 if [[ "$MINIMAL" == false ]]; then
-    # Install Claude Code commands (entire directory)
-    install_file "${SCRIPT_DIR}/.claude/commands" ".claude/commands"
+    # Install Claude Code commands (each file individually)
+    for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
+        if [[ -f "$cmd_file" ]]; then
+            local cmd_name=$(basename "$cmd_file")
+            install_file "${cmd_file}" ".claude/commands/${cmd_name}"
+        fi
+    done
 
     # Install CLI tool
     install_file "${SCRIPT_DIR}/sdlc-cli" "sdlc-cli"
