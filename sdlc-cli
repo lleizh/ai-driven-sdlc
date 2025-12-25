@@ -91,7 +91,7 @@ SDLC CLI v${VERSION} - 管理ツール
   # 6. 実装開始
   git checkout -b feature/FEATURE-123
 
-詳細: https://github.com/yourusername/ai-driven-sdlc
+詳細: https://github.com/lleizh/ai-driven-sdlc
 
 EOF
 }

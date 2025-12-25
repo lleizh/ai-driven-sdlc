@@ -325,7 +325,36 @@ git checkout -b feature/FEATURE-123
 **A**: はい。`sdlc/templates/` 配下のファイルを編集してください。
 
 ### Q: 既存プロジェクトに統合できる？
-**A**: はい。このリポジトリをコピーまたはサブモジュールとして追加してください。
+**A**: はい。`install.sh` で簡単にインストールできます。
+
+---
+
+## 既存プロジェクトへの適用
+
+```bash
+cd your-project
+
+# フルインストール
+curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash
+
+# または最小構成（Issue テンプレートのみ）
+curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash -s -- --minimal
+
+# 確認のみ（dry run）
+curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash -s -- --dry-run
+```
+
+**ローカルで実行する場合**：
+```bash
+git clone https://github.com/lleizh/ai-driven-sdlc
+cd your-project
+/path/to/ai-driven-sdlc/install.sh
+```
+
+**オプション**：
+- `--minimal` - Issue テンプレートのみ
+- `--no-templates` - テンプレートをスキップ
+- `--dry-run` - 実行せず確認のみ
 
 ---
 
