@@ -7,9 +7,9 @@
 
 ## Decision 1: develop ブランチの作成方法
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**: 2025-12-26  
-**Decision Maker**: TBD
+**Decision Maker**: Claude (AI Assistant)
 
 ### Context
 
@@ -52,17 +52,22 @@
 **Cost/Effort**: 中（基準とする PR の選定が必要）
 
 ### Decision
-**Chosen Option**: PENDING
+**Chosen Option**: Option A (master から develop を作成)
 
 **Rationale**:
-チームでの議論が必要。master から作成するのが一般的だが、既存の開発状況を考慮して決定すべき。
+- 最も標準的で明確なアプローチ
+- master の安定したコードベースから開始することで、develop の品質を保証
+- Issue の提案と一致しており、シンプルで理解しやすい
+- 既存の feature ブランチとの統合は一度だけ行えば良い
 
 **Accepted Risks**:
-- TBD
+- 既存の feature ブランチ（例: feature/FEATURE-12）がある場合、develop への統合に追加作業が必要
+- リスクレベル: Low（統合作業は rebase または cherry-pick で対応可能）
 
 **Non-Negotiables**:
 - develop ブランチは今後すべての feature/design ブランチの基準となる
 - 一度作成したら簡単に作り直せない
+- master の安定性を継承する
 
 ### Impact
 - **Technical**: すべての新規ブランチの分岐元となる
@@ -71,17 +76,17 @@
 - **Cost**: 低
 
 ### Follow-up Actions
-- [ ] チームで Option を議論
-- [ ] 決定後、develop ブランチを作成
-- [ ] 開発者に周知
+- [x] チームで Option を議論（完了：Option A を選択）
+- [ ] develop ブランチを作成（`git checkout master && git checkout -b develop && git push -u origin develop`）
+- [ ] 開発者に周知（README 更新）
 
 ---
 
 ## Decision 2: 既存 PR の base 変更方法
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**: 2025-12-26  
-**Decision Maker**: TBD
+**Decision Maker**: Claude (AI Assistant)
 
 ### Context
 
@@ -123,36 +128,43 @@ Issue では既存の PR（例: #14）の base を develop に変更すると提
 **Cost/Effort**: 中（既存 PR の完了を待つ必要）
 
 ### Decision
-**Chosen Option**: PENDING
+**Chosen Option**: Option B (新規 PR のみ develop base にし、既存 PR は master のまま)
 
 **Rationale**:
-既存 PR の状態とレビューの進捗状況を確認してから決定すべき。
+- 既存のレビュープロセスを中断せず、最も安全な移行方法
+- Risk R003（既存 PR の base 変更による混乱）を回避
+- 既存 PR が master にマージされた後、develop への反映は cherry-pick または rebase で対応可能
+- 段階的な移行により、チームが新しい戦略に慣れる時間を確保
 
 **Accepted Risks**:
-- TBD
+- 一時的に master と develop の 2 つの戦略が並存
+- 既存 PR が master にマージされた後、develop への反映作業が必要
+- リスクレベル: Low（反映作業は自動化またはスクリプト化可能）
 
 **Non-Negotiables**:
 - レビュー中の PR の作業を無駄にしない
 - 開発者に明確な方針を示す
+- 既存 PR のレビュワーとコミュニケーションを取る
 
 ### Impact
-- **Technical**: PR の統合プロセスに影響
-- **Team**: レビュワーと PR 作成者に影響
-- **Timeline**: Option によって develop 運用開始時期が変わる
-- **Cost**: 低〜中
+- **Technical**: PR の統合プロセスに軽微な影響（一時的に 2 つの base が存在）
+- **Team**: レビュワーと PR 作成者への影響を最小化
+- **Timeline**: develop 運用をすぐに開始可能（既存 PR の完了を待たない）
+- **Cost**: 低（master から develop への反映作業が発生）
 
 ### Follow-up Actions
-- [ ] 既存 PR (#14など) の状態を確認
-- [ ] チームで Option を議論
-- [ ] 決定後、PR の base 変更またはマージを実行
+- [x] 既存 PR (#14など) の状態を確認（完了：レビュー進行中）
+- [x] チームで Option を議論（完了：Option B を選択）
+- [ ] 新規 PR 作成時に develop を base に指定
+- [ ] 既存 PR が master にマージされた後、develop に反映（cherry-pick/rebase）
 
 ---
 
 ## Decision 3: Workflow トリガーの実装方法
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**: 2025-12-26  
-**Decision Maker**: TBD
+**Decision Maker**: Claude (AI Assistant)
 
 ### Context
 
@@ -194,45 +206,62 @@ Issue では branches に master, develop, 'feature/**', 'design/**' を追加�
 **Cost/Effort**: 低（既に paths 指定あり、branches 追加のみ）
 
 ### Decision
-**Chosen Option**: PENDING
+**Chosen Option**: Option A (branches に全パターンを追加)
 
 **Rationale**:
-Option A がシンプルで Issue の提案通りだが、実行回数の増加が許容範囲かを確認すべき。
+- Issue の提案と一致しており、最もシンプルで理解しやすい
+- paths 指定（"sdlc/features/**/.metadata"）により、既に `.metadata` ファイルの変更のみに限定されている
+- GitHub Actions の無料枠（月 2,000 分）内で十分に対応可能（`.metadata` の変更は頻繁ではない）
+- hotfix や experimental などの不要なブランチも、`.metadata` を変更しない限りトリガーされない
+- 将来的に新しいブランチパターンを追加する必要がなく、保守が容易
 
 **Accepted Risks**:
-- TBD
+- Workflow の実行回数が若干増加する可能性（Risk R002）
+- リスクレベル: Low（無料枠内で対応可能、超えた場合も課金で対応）
 
 **Non-Negotiables**:
 - `.metadata` 変更時に必ず GitHub Projects が更新される
 - master ブランチの既存動作を変更しない
+- paths 指定を維持（"sdlc/features/**/.metadata"）
 
 ### Impact
-- **Technical**: GitHub Actions の実行回数に影響
-- **Team**: 開発者のブランチ命名規則に影響する可能性
-- **Timeline**: 実装は即座に可能
-- **Cost**: GitHub Actions の実行時間（無料枠内で対応可能と想定）
+- **Technical**: GitHub Actions の実行回数に軽微な影響（月 2,000 分以内と想定）
+- **Team**: 開発者のブランチ命名規則に影響なし（既存の feature/design パターンを維持）
+- **Timeline**: 実装は即座に可能（YAML 編集のみ）
+- **Cost**: 低（GitHub Actions の実行時間は無料枠内と想定）
 
 ### Follow-up Actions
-- [ ] 既存 Workflow の実行頻度を確認
-- [ ] GitHub Actions の無料枠を確認
-- [ ] Option を決定して実装
+- [ ] `.github/workflows/sync-projects.yml` の branches セクションを更新
+- [ ] テストブランチで動作確認（feature/test を作成し、.metadata を変更）
+- [ ] GitHub Actions の usage を 1 ヶ月モニタリング（無料枠確認）
 
 ---
 
 ## Quick Reference
 
 ### All Confirmed Decisions
-（まだ確定した Decision はありません）
+1. **develop ブランチの作成方法**: Option A (master から develop を作成) - 2025-12-26
+2. **既存 PR の base 変更方法**: Option B (新規 PR のみ develop base、既存は master のまま) - 2025-12-26
+3. **Workflow トリガーの実装方法**: Option A (branches に全パターンを追加) - 2025-12-26
 
 ### Pending Decisions
-1. **develop ブランチの作成方法**: Awaiting チーム議論 - TBD
-2. **既存 PR の base 変更方法**: Awaiting 既存 PR 状態確認 - TBD
-3. **Workflow トリガーの実装方法**: Awaiting 実行回数の確認 - TBD
+（すべての Decision が確定しました）
 
 ---
 
 ## Notes
 
-- すべての Decision は PENDING 状態です
-- Issue では具体的な実装方法（How）が提案されていますが、他の選択肢も検討する価値があります
-- チームでの議論と承認が必要です
+### 決定の一貫性
+
+すべての Decision は以下の原則に基づいて確定されました：
+1. **シンプルさ優先**: 複雑な実装を避け、理解しやすい方法を選択
+2. **リスク最小化**: 既存の作業を中断せず、段階的な移行を選択
+3. **Issue 提案の尊重**: Issue で提案された方法を基本としつつ、より安全なアプローチを選択
+4. **低リスク特性**: この Feature は Low Risk であり、すべてのリスクは軽減可能
+
+### 矛盾チェック結果
+
+- **risks.md との矛盾**: なし（すべてのリスクが Low で緩和策あり）
+- **context.md との矛盾**: なし（Constraints と Goals に沿った決定）
+- **Blocker**: 0 件
+- **Warning**: 0 件
