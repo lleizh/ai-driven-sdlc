@@ -15,14 +15,20 @@ AI を実行エンジンとして使い、人間が意思決定とリスク管�
 
 ## 前提条件
 
-- [GitHub CLI](https://cli.github.com/) (`gh`)
+- [GitHub CLI](https://cli.github.com/) (`gh`) - **必須**
+  - SDLC コマンド（`/sdlc-pr-design`, `/sdlc-pr-code` など）で使用
+  - `install.sh` 実行時に GitHub Label を自動作成
 - [Claude Code](https://claude.ai/code) または Claude API アクセス
 
 ```bash
 # GitHub CLI インストール
 brew install gh
+
+# GitHub 認証（Label 自動作成に必要）
 gh auth login
 ```
+
+**注意**: `gh` コマンドがインストールされていない場合、`install.sh` は GitHub Label の自動作成をスキップします。その場合は手動で Label を作成するか、`gh` をインストール後に `install.sh` を再実行してください。
 
 ---
 
