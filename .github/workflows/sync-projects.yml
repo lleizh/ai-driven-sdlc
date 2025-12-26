@@ -11,6 +11,12 @@ on:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      # GitHub Projects v2 requires additional permissions
+      # Note: projects scope might need to be configured in repository settings
 
     steps:
       - name: Checkout
