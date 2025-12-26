@@ -1,0 +1,184 @@
+name: Sync GitHub Projects
+
+on:
+  push:
+    paths:
+      - 'sdlc/features/**/.metadata'
+    branches:
+      - master
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2  # git diff 用
+
+      - name: Check .sdlc-config
+        id: check-config
+        run: |
+          if [[ ! -f ".sdlc-config" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ .sdlc-config が見つかりません。GitHub Project のセットアップをスキップします。"
+            echo "セットアップ: ./install.sh を実行してください"
+            exit 0
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Load .sdlc-config
+        if: steps.check-config.outputs.skip == 'false'
+        run: |
+          source .sdlc-config
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+          echo "FIELD_ID_STATUS=$FIELD_ID_STATUS" >> $GITHUB_ENV
+          echo "FIELD_ID_FEATURE_ID=$FIELD_ID_FEATURE_ID" >> $GITHUB_ENV
+          echo "FIELD_ID_RISK_LEVEL=$FIELD_ID_RISK_LEVEL" >> $GITHUB_ENV
+          echo "FIELD_ID_DECISION_STATUS=$FIELD_ID_DECISION_STATUS" >> $GITHUB_ENV
+
+      - name: Detect changed features
+        if: steps.check-config.outputs.skip == 'false'
+        id: changed
+        run: |
+          # git diff で変更された .metadata を検出
+          CHANGED_FILES=$(git diff HEAD~1 --name-only | grep 'sdlc/features/.*/\.metadata' || true)
+
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "変更された .metadata がありません"
+            echo "features=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Feature ID を抽出
+          FEATURES=""
+          while IFS= read -r file; do
+            if [[ -f "$file" ]]; then
+              FEATURE_ID=$(grep "^FEATURE_ID=" "$file" | cut -d= -f2)
+              if [[ -n "$FEATURE_ID" ]]; then
+                FEATURES="$FEATURES $FEATURE_ID"
+              fi
+            fi
+          done <<< "$CHANGED_FILES"
+
+          echo "features=$FEATURES" >> $GITHUB_OUTPUT
+          echo "変更された Feature: $FEATURES"
+
+      - name: Sync to GitHub Projects
+        if: steps.check-config.outputs.skip == 'false' && steps.changed.outputs.features != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 各 Feature を同期
+          for FEATURE_ID in ${{ steps.changed.outputs.features }}; do
+            echo "=========================================="
+            echo "Syncing: $FEATURE_ID"
+            echo "=========================================="
+
+            METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
+
+            if [[ ! -f "$METADATA_FILE" ]]; then
+              echo "⚠️ $METADATA_FILE が見つかりません。スキップします。"
+              continue
+            fi
+
+            # .metadata を読み込み
+            source "$METADATA_FILE"
+
+            echo "Feature ID: $FEATURE_ID"
+            echo "Status: $STATUS"
+            echo "Risk Level: $RISK_LEVEL"
+            echo "Decision Status: $DECISION_STATUS"
+            echo "Issue URL: $ISSUE_URL"
+
+            # Issue の node_id を取得
+            ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oP '(?<=/issues/)\d+')
+
+            if [[ -z "$ISSUE_NUMBER" ]]; then
+              echo "⚠️ Issue URL から Issue 番号を抽出できません: $ISSUE_URL"
+              continue
+            fi
+
+            ISSUE_NODE_ID=$(gh api graphql -f query='
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                  }
+                }
+              }
+            ' -f owner="${{ github.repository_owner }}" \
+              -f repo="${{ github.event.repository.name }}" \
+              -f number="$ISSUE_NUMBER" \
+              --jq '.data.repository.issue.id' 2>/dev/null || echo "")
+
+            if [[ -z "$ISSUE_NODE_ID" ]]; then
+              echo "⚠️ Issue の node ID を取得できません: Issue #$ISSUE_NUMBER"
+              continue
+            fi
+
+            echo "Issue node ID: $ISSUE_NODE_ID"
+
+            # Project に Item が存在するか確認
+            ITEM_ID=$(gh api graphql -f query='
+              query($projectId: ID!, $contentId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on Issue {
+                            id
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              -f contentId="$ISSUE_NODE_ID" \
+              --jq ".data.node.items.nodes[] | select(.content.id == \"$ISSUE_NODE_ID\") | .id" 2>/dev/null || echo "")
+
+            # Item が存在しない場合は追加
+            if [[ -z "$ITEM_ID" ]]; then
+              echo "Project に Item を追加中..."
+
+              ITEM_ID=$(gh api graphql -f query='
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              ' -f projectId="$PROJECT_ID" \
+                -f contentId="$ISSUE_NODE_ID" \
+                --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null || echo "")
+
+              if [[ -z "$ITEM_ID" ]]; then
+                echo "❌ Item の追加に失敗しました"
+                continue
+              fi
+
+              echo "✓ Item を追加しました: $ITEM_ID"
+            else
+              echo "✓ Item は既に存在します: $ITEM_ID"
+            fi
+
+            # Phase 2 で実装予定: カスタムフィールドの更新
+            # 現在は Item の追加のみ実装
+
+            echo "✓ $FEATURE_ID の同期が完了しました"
+            echo ""
+          done
+
+          echo "=========================================="
+          echo "全ての Feature の同期が完了しました"
+          echo "=========================================="
