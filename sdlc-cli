@@ -289,7 +289,7 @@ show_status() {
 
     # Phase 4: Review
     if [[ -f "${feature_dir}/40_review_findings.md" ]] && [[ -s "${feature_dir}/40_review_findings.md" ]]; then
-        local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null || echo "0")
+        local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null | xargs || echo "0")
         if [[ $blocking_count -gt 0 ]]; then
             echo -e "  ${RED}⚠${NC} 4. Review      - MUST_FIX 問題あり (${blocking_count}件)"
         else
@@ -320,7 +320,7 @@ show_status() {
 
     # Check 2: Risks
     ((checks_total++))
-    local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+    local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null | xargs || echo "0")
     if [[ $risk_count -gt 0 ]]; then
         echo -e "  ${GREEN}✓${NC} リスク記録済み (${risk_count}個)"
         ((checks_passed++))
@@ -457,7 +457,7 @@ validate_feature() {
         print_error "risks.md が空です"
         ((errors++))
     else
-        local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+        local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null | xargs || echo "0")
         if [[ $risk_count -gt 0 ]]; then
             print_success "risks.md 存在（${risk_count}個のリスク記録）"
             ((passed++))
@@ -594,7 +594,7 @@ validate_feature() {
             ((passed++))
 
             # Check for blocking issues
-            local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null || echo "0")
+            local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null | xargs || echo "0")
             if [[ $blocking_count -gt 0 ]]; then
                 print_error "  → MUST_FIX の問題が ${blocking_count} 件あります"
                 ((errors++))
@@ -882,13 +882,13 @@ generate_report() {
 
             # Revisions
             if [[ -f "${feature_dir}/decisions.md" ]]; then
-                local revisions=$(grep -c "^## Decision Revision" "${feature_dir}/decisions.md" 2>/dev/null || echo "0")
+                local revisions=$(grep -c "^## Decision Revision" "${feature_dir}/decisions.md" 2>/dev/null | xargs || echo "0")
                 revision_count=$((revision_count + revisions))
             fi
 
             # Risks
             if [[ -f "${feature_dir}/risks.md" ]]; then
-                local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+                local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null | xargs || echo "0")
                 total_risks=$((total_risks + risks))
 
                 local high_risks=$(grep -E "Risk Level.*: High" "${feature_dir}/risks.md" 2>/dev/null | wc -l | xargs)
@@ -955,7 +955,7 @@ generate_report() {
 
     echo "  Decision Revision:   ${revision_count}件"
 
-    if [[ $revision_count -gt 0 ]]; then
+    if [[ $revision_count -gt 0 ]] && [[ $total -gt 0 ]]; then
         local avg_revision=$(calc "$revision_count / $total")
         if compare "$avg_revision > 2"; then
             echo -e "  ${RED}平均 Revision/Feature: ${avg_revision}${NC} (要注意)"
@@ -1008,7 +1008,7 @@ generate_report() {
     local features_with_risks=0
     for feature_dir in "${FEATURES_DIR}"/*; do
         if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/risks.md" ]]; then
-            local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null || echo "0")
+            local risks=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null | xargs || echo "0")
             if [[ $risks -gt 0 ]]; then
                 ((features_with_risks++))
             fi
