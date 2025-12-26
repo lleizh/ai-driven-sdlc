@@ -171,9 +171,9 @@ GitHub Project を使用するために、Project の作成とカスタムフィ
 
 ## Decision 3: カスタムフィールドのデータ形式
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**: 2025-12-26  
-**Decision Maker**: TBD
+**Decision Maker**: lleizh
 
 ### Context
 
@@ -221,27 +221,30 @@ GitHub Projects v2 のカスタムフィールドにどのような形式でデ�
 **Cost/Effort**: 中（段階的な実装と移行）
 
 ### Decision
-**Chosen Option**: TBD
+**Chosen Option**: Option B - 最小限のフィールドのみ（Status, Feature ID, Risk Level, Decision Status）
 
 **Rationale**:
-<!-- チームで議論して決定 -->
+シンプルさを優先し、まずは動くものを作る。4つのコアフィールド（Status, Feature ID, Risk Level, Decision Status）で SDLC の進捗管理に必要な最小限の情報を提供する。Branch や PR Link は必要に応じて CLI で確認可能。
 
 **Accepted Risks**:
-- TBD
+- 情報不足による問題: Branch や PR Link が Project から確認できない
+- 詳細情報の確認には CLI が必要
+- 可視化のメリットが一部制限される
 
 **Non-Negotiables**:
-- 少なくとも Status と Feature ID は必須
+- Status と Feature ID は必須（確保済み）
 - `.metadata` との整合性を保つ
+- 将来的にフィールド追加が可能な設計にする
 
 ### Impact
-- **Technical**: カスタムフィールド管理の複雑性
-- **Team**: Project UI の使いやすさ
-- **Timeline**: Option A/B は 1週間、Option C は Phase 分散
-- **Cost**: API コール数とデータ量
+- **Technical**: カスタムフィールド管理がシンプルになる（4フィールドのみ）
+- **Team**: Project UI がシンプルで理解しやすい、詳細は CLI で確認
+- **Timeline**: 1週間（実装が簡単）
+- **Cost**: API コール数が最小限
 
 ### Follow-up Actions
-- [ ] チームメンバーに必要なフィールドをヒアリング
-- [ ] 既存の Project 使用例を調査
+- [x] カスタムフィールドのデータ形式を決定
+- [ ] Phase 2 でのフィールド追加の必要性を評価
 
 ---
 
@@ -258,9 +261,10 @@ GitHub Projects v2 のカスタムフィールドにどのような形式でデ�
 ### All Confirmed Decisions
 1. **Project セットアップの方式**: Option A（install.sh で自動セットアップ） - 2025-12-26
 2. **自動同期のトリガータイミング**: Option B（push 時に変更された Feature のみ更新） - 2025-12-26
+3. **カスタムフィールドのデータ形式**: Option B（最小限のフィールド：Status, Feature ID, Risk Level, Decision Status） - 2025-12-26
 
 ### Pending Decisions
-1. **カスタムフィールドのデータ形式**: Option A/B/C を検討中
+なし
 
 ---
 
