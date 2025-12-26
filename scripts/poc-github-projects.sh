@@ -73,7 +73,7 @@ print_success "Owner ID: $OWNER_ID"
 # Test 1: Create Project
 print_header "Test 1: Project 作成"
 
-PROJECT_TITLE="Test SDLC Project $(date +%s)"
+PROJECT_TITLE="Test SDLC - $(date +%s)"
 print_info "Project を作成中: $PROJECT_TITLE"
 
 CREATE_RESULT=$(gh api graphql -f query='

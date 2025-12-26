@@ -377,7 +377,7 @@ setup_github_project() {
   fi
 
   # Create Project
-  PROJECT_TITLE="SDLC Project - $REPO_NAME"
+  PROJECT_TITLE="SDLC - $REPO_NAME"
   print_info "Project を作成中: $PROJECT_TITLE"
 
   CREATE_RESULT=$(gh api graphql -f query='
