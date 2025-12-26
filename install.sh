@@ -40,8 +40,6 @@ AI-Driven SDLC Installer v${VERSION}
   ./install.sh [options]
 
 オプション:
-  --minimal       最小構成（Issue テンプレートのみ）
-  --no-templates  テンプレートをスキップ
   --force         既存ファイルを強制上書き
   --update        既存ファイルごとに上書き確認
   --dry-run       実行せず、コピーされるファイルのみ表示
@@ -49,7 +47,6 @@ AI-Driven SDLC Installer v${VERSION}
 
 例:
   ./install.sh                    # フルインストール（既存ファイルはスキップ）
-  ./install.sh --minimal          # Issue テンプレートのみ
   ./install.sh --force            # 既存ファイルを強制上書き
   ./install.sh --update           # 既存ファイルごとに確認
   ./install.sh --dry-run          # 確認のみ
@@ -58,22 +55,12 @@ EOF
 }
 
 # Parse arguments
-MINIMAL=false
-NO_TEMPLATES=false
 DRY_RUN=false
 FORCE=false
 UPDATE=false
 
 while [[ $# -gt 0 ]]; do
     case $1 in
-        --minimal)
-            MINIMAL=true
-            shift
-            ;;
-        --no-templates)
-            NO_TEMPLATES=true
-            shift
-            ;;
         --force)
             FORCE=true
             shift
@@ -115,11 +102,7 @@ if [[ "$DRY_RUN" == true ]]; then
     echo ""
 fi
 
-if [[ "$MINIMAL" == true ]]; then
-    print_info "最小構成でインストールします"
-else
-    print_info "フル構成でインストールします"
-fi
+print_info "フル構成でインストールします"
 
 if [[ "$FORCE" == true ]]; then
     print_warning "強制上書きモード: 既存ファイルはすべて上書きされます"
@@ -134,28 +117,24 @@ print_info "インストール内容:"
 
 FILES_TO_COPY=()
 
-# Issue template (always)
+# Issue template
 FILES_TO_COPY+=(".github/ISSUE_TEMPLATE/feature.md")
 
-if [[ "$MINIMAL" == false ]]; then
-    # Claude Code commands (list all sdlc-*.md files)
-    for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
-        if [[ -f "$cmd_file" ]]; then
-            FILES_TO_COPY+=(".claude/commands/$(basename "$cmd_file")")
-        fi
-    done
-
-    # CLI tool
-    FILES_TO_COPY+=("sdlc-cli")
-
-    # Documentation
-    FILES_TO_COPY+=("AI_SDLC.md")
-
-    # Templates
-    if [[ "$NO_TEMPLATES" == false ]]; then
-        FILES_TO_COPY+=("sdlc/templates/")
+# Claude Code commands (list all sdlc-*.md files)
+for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
+    if [[ -f "$cmd_file" ]]; then
+        FILES_TO_COPY+=(".claude/commands/$(basename "$cmd_file")")
     fi
-fi
+done
+
+# CLI tool
+FILES_TO_COPY+=("sdlc-cli")
+
+# Documentation
+FILES_TO_COPY+=("AI_SDLC.md")
+
+# Templates
+FILES_TO_COPY+=("sdlc/templates/")
 
 for file in "${FILES_TO_COPY[@]}"; do
     echo "  - ${file}"
@@ -230,31 +209,27 @@ print_header "インストール中"
 # Install Issue template
 install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TEMPLATE/feature.md"
 
-if [[ "$MINIMAL" == false ]]; then
-    # Install Claude Code commands (each file individually)
-    for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
-        if [[ -f "$cmd_file" ]]; then
-            local cmd_name=$(basename "$cmd_file")
-            install_file "${cmd_file}" ".claude/commands/${cmd_name}"
-        fi
-    done
-
-    # Install CLI tool
-    install_file "${SCRIPT_DIR}/sdlc-cli" "sdlc-cli"
-
-    if [[ "$DRY_RUN" == false ]] && [[ -f "sdlc-cli" ]]; then
-        chmod +x sdlc-cli
-        print_success "sdlc-cli に実行権限を付与"
+# Install Claude Code commands (each file individually)
+for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
+    if [[ -f "$cmd_file" ]]; then
+        local cmd_name=$(basename "$cmd_file")
+        install_file "${cmd_file}" ".claude/commands/${cmd_name}"
     fi
+done
 
-    # Install documentation
-    install_file "${SCRIPT_DIR}/AI_SDLC.md" "AI_SDLC.md"
+# Install CLI tool
+install_file "${SCRIPT_DIR}/sdlc-cli" "sdlc-cli"
 
-    # Install templates
-    if [[ "$NO_TEMPLATES" == false ]]; then
-        install_file "${SCRIPT_DIR}/sdlc/templates" "sdlc/templates"
-    fi
+if [[ "$DRY_RUN" == false ]] && [[ -f "sdlc-cli" ]]; then
+    chmod +x sdlc-cli
+    print_success "sdlc-cli に実行権限を付与"
 fi
+
+# Install documentation
+install_file "${SCRIPT_DIR}/AI_SDLC.md" "AI_SDLC.md"
+
+# Install templates
+install_file "${SCRIPT_DIR}/sdlc/templates" "sdlc/templates"
 
 if [[ "$DRY_RUN" == true ]]; then
     echo ""
@@ -269,16 +244,10 @@ print_success "AI-Driven SDLC のインストールが完了しました！"
 
 echo ""
 print_info "次のステップ:"
-
-if [[ "$MINIMAL" == true ]]; then
-    echo "1. GitHub で新しい Issue を作成（feature テンプレートを使用）"
-    echo "2. Risk Level を選択"
-else
-    echo "1. gh CLI をインストール: brew install gh"
-    echo "2. gh CLI で認証: gh auth login"
-    echo "3. GitHub で新しい Issue を作成"
-    echo "4. Claude Code で実行: /sdlc-init <issue-url>"
-fi
+echo "1. gh CLI をインストール: brew install gh"
+echo "2. gh CLI で認証: gh auth login"
+echo "3. GitHub で新しい Issue を作成"
+echo "4. Claude Code で実行: /sdlc-init <issue-url>"
 
 echo ""
 print_info "詳細: AI_SDLC.md を参照"

@@ -120,10 +120,12 @@ Claude Code で対話しながら実装：
 
 | コマンド | 説明 | 使用タイミング |
 |---------|------|--------------|
+| `/sdlc-issue` | 対話から Issue 作成 | 対話中に Issue 化したい時 |
 | `/sdlc-init <issue-url>` | SDLC 文書生成 | Issue 作成後 |
 | `/sdlc-pr-design <feature-id>` | Design Review PR | 文書完成後 |
 | `/sdlc-decision <feature-id>` | Decision 確定 | Team Review 後 |
 | `/sdlc-impl-plan <feature-id>` | 実装計画生成 | Decision 確定後 |
+| `/sdlc-coding <feature-id>` | 実装実行 | Decision 確定後 |
 | `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
 | `/sdlc-check <feature-id>` | 一致性チェック | 実装完了後 |
 | `/sdlc-pr-code <feature-id>` | Implementation PR | チェック通過後 |
@@ -337,9 +339,6 @@ cd your-project
 # フルインストール
 curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash
 
-# または最小構成（Issue テンプレートのみ）
-curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash -s -- --minimal
-
 # 確認のみ（dry run）
 curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash -s -- --dry-run
 ```
@@ -352,8 +351,8 @@ cd your-project
 ```
 
 **オプション**：
-- `--minimal` - Issue テンプレートのみ
-- `--no-templates` - テンプレートをスキップ
+- `--force` - 既存ファイルを強制上書き
+- `--update` - 既存ファイルごとに上書き確認
 - `--dry-run` - 実行せず確認のみ
 
 ---
