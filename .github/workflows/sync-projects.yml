@@ -75,7 +75,9 @@ jobs:
       - name: Sync to GitHub Projects
         if: steps.check-config.outputs.skip == 'false' && steps.changed.outputs.features != ''
         env:
-          GH_TOKEN: ${{ github.token }}
+          # Use PAT for GitHub Projects v2 API access
+          # Required scopes: project, repo
+          GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
           # API レート制限対策: リトライ機能付き GraphQL 実行
           retry_graphql() {
