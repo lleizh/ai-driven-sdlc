@@ -212,7 +212,7 @@ install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TE
 # Install Claude Code commands (each file individually)
 for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
     if [[ -f "$cmd_file" ]]; then
-        local cmd_name=$(basename "$cmd_file")
+        cmd_name=$(basename "$cmd_file")
         install_file "${cmd_file}" ".claude/commands/${cmd_name}"
     fi
 done
@@ -256,3 +256,68 @@ echo ""
 print_info "Git に追加する場合:"
 echo "  git add .github .claude sdlc-cli AI_SDLC.md sdlc/"
 echo "  git commit -m \"Add AI-Driven SDLC framework\""
+
+# Initialize GitHub Labels
+initialize_labels() {
+  # Check if gh command exists
+  if ! command -v gh &> /dev/null; then
+    echo ""
+    print_warning "'gh' コマンドが見つかりません。GitHub Label の自動作成をスキップします。"
+    print_info "Label を手動で作成するか、gh CLI をインストールして再実行してください:"
+    echo "  brew install gh"
+    echo "  gh auth login"
+    return
+  fi
+
+  # Check if in git repository
+  if [[ ! -d ".git" ]]; then
+    return
+  fi
+
+  # Get remote URL
+  REMOTE_URL=$(git remote get-url origin 2>/dev/null)
+  if [[ -z "$REMOTE_URL" ]]; then
+    return
+  fi
+
+  # Extract repo (owner/repo) from remote URL
+  REPO=$(echo "$REMOTE_URL" | sed -E 's/.*[:\\/]([^\\/]+\\/[^\\/]+)(\.git)?$/\1/' | sed 's/\.git$//')
+
+  echo ""
+  print_info "GitHub Label を初期化中..."
+
+  # Define labels: name:color:description
+  LABELS=(
+    "feature:0e8a16:新機能リクエスト"
+    "bug:d73a4a:バグ修正"
+    "risk:high:d93f0b:高リスク機能（Design Review 必須）"
+    "design-review:1d76db:Design Review PR"
+    "implementation:5319e7:Implementation PR"
+    "decision-revision:fbca04:Decision 修正 PR"
+  )
+
+  # Check each label and create if not exists
+  for LABEL_DEF in "${LABELS[@]}"; do
+    IFS=':' read -r NAME COLOR DESC <<< "$LABEL_DEF"
+
+    # Check if label already exists
+    if gh label list --repo "$REPO" 2>/dev/null | grep -q "^$NAME"; then
+      # Label exists, skip
+      continue
+    fi
+
+    # Create label
+    if gh label create "$NAME" --color "$COLOR" --description "$DESC" --repo "$REPO" 2>/dev/null; then
+      print_success "Label '$NAME' を作成しました"
+    else
+      print_warning "Label '$NAME' の作成に失敗しました（スキップします）"
+    fi
+  done
+
+  print_success "GitHub Label の初期化が完了しました"
+}
+
+# Run label initialization
+if [[ "$DRY_RUN" == false ]]; then
+  initialize_labels
+fi
