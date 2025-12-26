@@ -410,19 +410,19 @@ setup_github_project() {
   # Create custom fields (4 fields as per Decision 3)
   print_info "カスタムフィールドを作成中..."
 
-  # Field 1: Status (Single Select)
+  # Field 1: SDLC Status (Single Select)
   STATUS_FIELD_ID=$(gh api graphql -f query='
     mutation($projectId: ID!) {
       createProjectV2Field(input: {
         projectId: $projectId
         dataType: SINGLE_SELECT
-        name: "Status"
+        name: "SDLC Status"
         singleSelectOptions: [
-          {name: "Planning", color: GRAY},
-          {name: "Designing", color: BLUE},
-          {name: "Implementing", color: YELLOW},
-          {name: "Reviewing", color: ORANGE},
-          {name: "Completed", color: GREEN}
+          {name: "Planning", color: GRAY, description: "Planning phase"},
+          {name: "Designing", color: BLUE, description: "Design phase"},
+          {name: "Implementing", color: YELLOW, description: "Implementation phase"},
+          {name: "Reviewing", color: ORANGE, description: "Review phase"},
+          {name: "Completed", color: GREEN, description: "Completed"}
         ]
       }) {
         projectV2Field {
@@ -435,9 +435,9 @@ setup_github_project() {
   ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
   if [[ -n "$STATUS_FIELD_ID" ]]; then
-    print_success "Status フィールド作成成功"
+    print_success "SDLC Status フィールド作成成功"
   else
-    print_warning "Status フィールド作成に失敗"
+    print_warning "SDLC Status フィールド作成に失敗"
   fi
 
   # Field 2: Feature ID (Text)
@@ -471,9 +471,9 @@ setup_github_project() {
         dataType: SINGLE_SELECT
         name: "Risk Level"
         singleSelectOptions: [
-          {name: "Low", color: GREEN},
-          {name: "Medium", color: YELLOW},
-          {name: "High", color: RED}
+          {name: "Low", color: GREEN, description: "Low risk"},
+          {name: "Medium", color: YELLOW, description: "Medium risk"},
+          {name: "High", color: RED, description: "High risk"}
         ]
       }) {
         projectV2Field {
@@ -499,9 +499,9 @@ setup_github_project() {
         dataType: SINGLE_SELECT
         name: "Decision Status"
         singleSelectOptions: [
-          {name: "Pending", color: GRAY},
-          {name: "Confirmed", color: GREEN},
-          {name: "Revised", color: YELLOW}
+          {name: "Pending", color: GRAY, description: "Decision pending"},
+          {name: "Confirmed", color: GREEN, description: "Decision confirmed"},
+          {name: "Revised", color: YELLOW, description: "Decision revised"}
         ]
       }) {
         projectV2Field {

@@ -284,7 +284,7 @@ jobs:
               esac
 
               if [[ -n "$PROJECT_STATUS" ]]; then
-                STATUS_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_STATUS" '.data.node.fields.nodes[] | select(.name == "Status") | .options[] | select(.name == $name) | .id')
+                STATUS_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_STATUS" '.data.node.fields.nodes[] | select(.name == "SDLC Status") | .options[] | select(.name == $name) | .id')
 
                 if [[ -n "$STATUS_OPTION_ID" ]]; then
                   if gh api graphql -f query='
