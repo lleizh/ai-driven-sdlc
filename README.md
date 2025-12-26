@@ -32,6 +32,32 @@ gh auth login
 
 ---
 
+## ブランチ戦略
+
+このプロジェクトは **Git Flow ベース** のブランチ戦略を採用しています。
+
+### ブランチ構成
+
+| ブランチ | 用途 | 保護 |
+|---------|------|------|
+| `master` | 本番リリース用（安定版） | ✓ |
+| `develop` | 主開発ブランチ（デフォルト） | ✓ |
+| `feature/FEATURE-XXX` | 低リスク機能の開発 | - |
+| `design/FEATURE-XXX` | 中/高リスク機能の Design Review | - |
+
+### GitHub Actions による自動同期
+
+`.metadata` ファイルの変更時、以下のブランチで GitHub Projects が自動更新されます：
+
+- `master` - 本番リリース時
+- `develop` - 開発ブランチへのマージ時
+- `feature/**` - 低リスク機能の実装中
+- `design/**` - 中/高リスク機能の Design Review 中
+
+これにより、merge を待たずに開発進捗を GitHub Projects で追跡できます。
+
+---
+
 ## クイックスタート
 
 ### 1. GitHub で Issue を作成
