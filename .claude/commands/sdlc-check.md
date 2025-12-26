@@ -24,7 +24,44 @@ PR 作成前に実装の一致性をチェックします。
 git diff main...HEAD
 ```
 
-### 3. 一致性チェック
+### 3. Implementation Plan タスク完成度チェック
+
+`30_implementation_plan.md` が存在する場合、タスク完成度を検証：
+
+```bash
+# タスクを抽出
+IMPL_PLAN="sdlc/features/${FEATURE_ID}/30_implementation_plan.md"
+
+if [ -f "$IMPL_PLAN" ]; then
+  # 全タスク数をカウント
+  TOTAL_TASKS=$(grep -E '^\s*-\s+\[[ x]\]' "$IMPL_PLAN" | wc -l | tr -d ' ')
+  
+  # 完了タスク数をカウント
+  COMPLETED_TASKS=$(grep -E '^\s*-\s+\[x\]' "$IMPL_PLAN" | wc -l | tr -d ' ')
+  
+  # 未完了タスク数をカウント
+  INCOMPLETE_TASKS=$(grep -E '^\s*-\s+\[ \]' "$IMPL_PLAN" | wc -l | tr -d ' ')
+  
+  # カテゴリ別に未完了タスクを分類（キーワードベース）
+  DOC_INCOMPLETE=$(grep -E '^\s*-\s+\[ \]' "$IMPL_PLAN" | grep -iE '(README|document|doc\s|guide|説明|ドキュメント)' | wc -l | tr -d ' ')
+  TEST_INCOMPLETE=$(grep -E '^\s*-\s+\[ \]' "$IMPL_PLAN" | grep -iE '(test|テスト|検証)' | wc -l | tr -d ' ')
+  CORE_INCOMPLETE=$((INCOMPLETE_TASKS - DOC_INCOMPLETE - TEST_INCOMPLETE))
+  
+  # 完成率を計算
+  if [ "$TOTAL_TASKS" -gt 0 ]; then
+    COMPLETION_RATE=$((COMPLETED_TASKS * 100 / TOTAL_TASKS))
+  else
+    COMPLETION_RATE=0
+  fi
+fi
+```
+
+**チェック基準**:
+- Documentation タスク未完了 → 警告
+- Testing タスク未完了 → 警告（High Risk の場合はブロッカー）
+- Core 実装タスク未完了 → ブロッカー
+
+### 4. 一致性チェック
 
 以下をチェック：
 
@@ -41,7 +78,7 @@ git diff main...HEAD
 - design.md の方針から逸脱していないか
 - Invariants（不変条件）が破壊されていないか
 
-### 4. 結果を表示
+### 5. 結果を表示
 
 **ターミナルに直接表示**（ファイルには書き込まない）：
 
@@ -51,16 +88,36 @@ git diff main...HEAD
   Date: {日付}
 =================================================
 
+📊 Implementation Plan タスク完成度
+  - 全タスク: {TOTAL_TASKS}
+  - 完了: {COMPLETED_TASKS} ({COMPLETION_RATE}%)
+  - 未完了: {INCOMPLETE_TASKS}
+    - Documentation: {DOC_INCOMPLETE}
+    - Testing: {TEST_INCOMPLETE}
+    - Core実装: {CORE_INCOMPLETE}
+
 ✅ 問題なし
   - {チェック項目}
 
 ⚠️  警告 ({数})
   - {警告内容}
     推奨: {対応方法}
+  {Documentation タスクが未完了の場合}
+  - Documentation タスクが {DOC_INCOMPLETE} 件未完了
+    推奨: README、ガイド、ドキュメントを完成させる
+  {Testing タスクが未完了の場合 (Low/Medium Risk)}
+  - Testing タスクが {TEST_INCOMPLETE} 件未完了
+    推奨: テストを実装して実行する
 
 ❌ ブロッカー ({数})
   - {重大な問題}
     必須: {修正が必要}
+  {Core実装タスクが未完了の場合}
+  - Core実装タスクが {CORE_INCOMPLETE} 件未完了
+    必須: 全てのCore実装タスクを完了させる
+  {Testing タスクが未完了の場合 (High Risk)}
+  - Testing タスクが {TEST_INCOMPLETE} 件未完了（High Risk）
+    必須: 全てのTestingタスクを完了させる
 
 =================================================
 Summary: {ブロッカー数} blockers, {警告数} warnings
