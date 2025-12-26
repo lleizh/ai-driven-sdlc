@@ -1,0 +1,430 @@
+name: Sync GitHub Projects
+
+on:
+  push:
+    paths:
+      - "sdlc/features/**/.metadata"
+    branches:
+      - master
+      - main
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+      pull-requests: read
+      # GitHub Projects v2 requires additional permissions
+      # Note: projects scope might need to be configured in repository settings
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # git diff 用
+
+      - name: Check .sdlc-config
+        id: check-config
+        run: |
+          if [[ ! -f ".sdlc-config" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ .sdlc-config が見つかりません。GitHub Project のセットアップをスキップします。"
+            echo "セットアップ: ./install.sh を実行してください"
+            exit 0
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Load .sdlc-config
+        if: steps.check-config.outputs.skip == 'false'
+        run: |
+          source .sdlc-config
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+          echo "FIELD_ID_STATUS=$FIELD_ID_STATUS" >> $GITHUB_ENV
+          echo "FIELD_ID_FEATURE_ID=$FIELD_ID_FEATURE_ID" >> $GITHUB_ENV
+          echo "FIELD_ID_RISK_LEVEL=$FIELD_ID_RISK_LEVEL" >> $GITHUB_ENV
+          echo "FIELD_ID_DECISION_STATUS=$FIELD_ID_DECISION_STATUS" >> $GITHUB_ENV
+
+      - name: Detect changed features
+        if: steps.check-config.outputs.skip == 'false'
+        id: changed
+        run: |
+          # git diff で変更された .metadata を検出
+          CHANGED_FILES=$(git diff HEAD~1 --name-only | grep 'sdlc/features/.*/\.metadata' || true)
+
+          if [[ -z "$CHANGED_FILES" ]]; then
+            echo "変更された .metadata がありません"
+            echo "features=" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Feature ID を抽出
+          FEATURES=""
+          while IFS= read -r file; do
+            if [[ -f "$file" ]]; then
+              FEATURE_ID=$(grep "^FEATURE_ID=" "$file" | cut -d= -f2)
+              if [[ -n "$FEATURE_ID" ]]; then
+                FEATURES="$FEATURES $FEATURE_ID"
+              fi
+            fi
+          done <<< "$CHANGED_FILES"
+
+          echo "features=$FEATURES" >> $GITHUB_OUTPUT
+          echo "変更された Feature: $FEATURES"
+
+      - name: Sync to GitHub Projects
+        if: steps.check-config.outputs.skip == 'false' && steps.changed.outputs.features != ''
+        env:
+          # Use PAT for GitHub Projects v2 API access
+          # Required scopes: project, repo
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          # API レート制限対策: リトライ機能付き GraphQL 実行
+          retry_graphql() {
+            local query="$1"
+            local variables="$2"
+            local max_retries=3
+            local retry_count=0
+            local wait_time=5
+
+            while [ $retry_count -lt $max_retries ]; do
+              # GraphQL API を実行
+              local result
+              result=$(gh api graphql -f query="$query" $variables 2>&1)
+              local exit_code=$?
+
+              # 成功した場合
+              if [ $exit_code -eq 0 ]; then
+                echo "$result"
+                return 0
+              fi
+
+              # レート制限エラーをチェック
+              if echo "$result" | grep -q "rate limit"; then
+                retry_count=$((retry_count + 1))
+                if [ $retry_count -lt $max_retries ]; then
+                  echo "⚠️ API レート制限に達しました。${wait_time}秒後にリトライします... (${retry_count}/${max_retries})" >&2
+                  sleep $wait_time
+                  wait_time=$((wait_time * 2)) # Exponential backoff
+                else
+                  echo "❌ API レート制限エラー: リトライ回数の上限に達しました" >&2
+                  return 1
+                fi
+              else
+                # レート制限以外のエラー
+                echo "$result" >&2
+                return $exit_code
+              fi
+            done
+
+            return 1
+          }
+
+          # API レート制限チェック関数
+          check_rate_limit() {
+            local rate_limit_info
+            rate_limit_info=$(gh api rate_limit 2>/dev/null)
+
+            if [[ -n "$rate_limit_info" ]]; then
+              local remaining=$(echo "$rate_limit_info" | jq -r '.resources.graphql.remaining')
+              local limit=$(echo "$rate_limit_info" | jq -r '.resources.graphql.limit')
+              local reset=$(echo "$rate_limit_info" | jq -r '.resources.graphql.reset')
+
+              echo "API レート制限: $remaining / $limit 残り"
+
+              # 残りが20%未満の場合は警告
+              if (( remaining < limit / 5 )); then
+                echo "⚠️ API レート制限が少なくなっています ($remaining/$limit)"
+
+                # 残りが10未満の場合はリセットまで待機
+                if (( remaining < 10 )); then
+                  local current_time=$(date +%s)
+                  local wait_time=$((reset - current_time + 5))
+
+                  if (( wait_time > 0 && wait_time < 3600 )); then
+                    echo "⚠️ API レート制限リセットまで ${wait_time}秒 待機します..."
+                    sleep $wait_time
+                  fi
+                fi
+              fi
+            fi
+          }
+
+          # 同期開始前にレート制限をチェック
+          check_rate_limit
+
+          # 各 Feature を同期
+          for FEATURE_ID in ${{ steps.changed.outputs.features }}; do
+            echo "=========================================="
+            echo "Syncing: $FEATURE_ID"
+            echo "=========================================="
+
+            METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
+
+            if [[ ! -f "$METADATA_FILE" ]]; then
+              echo "⚠️ $METADATA_FILE が見つかりません。スキップします。"
+              continue
+            fi
+
+            # .metadata を読み込み
+            source "$METADATA_FILE"
+
+            echo "Feature ID: $FEATURE_ID"
+            echo "Status: $STATUS"
+            echo "Risk Level: $RISK_LEVEL"
+            echo "Decision Status: $DECISION_STATUS"
+            echo "Issue URL: $ISSUE_URL"
+
+            # Issue の node_id を取得
+            ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oP '(?<=/issues/)\d+')
+
+            if [[ -z "$ISSUE_NUMBER" ]]; then
+              echo "⚠️ Issue URL から Issue 番号を抽出できません: $ISSUE_URL"
+              continue
+            fi
+
+            ISSUE_NODE_ID=$(gh api graphql -f query='
+              query($owner: String!, $repo: String!, $number: Int!) {
+                repository(owner: $owner, name: $repo) {
+                  issue(number: $number) {
+                    id
+                  }
+                }
+              }
+            ' -f owner="${{ github.repository_owner }}" \
+              -f repo="${{ github.event.repository.name }}" \
+              -f number="$ISSUE_NUMBER" \
+              --jq '.data.repository.issue.id' 2>/dev/null || echo "")
+
+            if [[ -z "$ISSUE_NODE_ID" ]]; then
+              echo "⚠️ Issue の node ID を取得できません: Issue #$ISSUE_NUMBER"
+              continue
+            fi
+
+            echo "Issue node ID: $ISSUE_NODE_ID"
+
+            # Project に Item が存在するか確認
+            ITEM_ID=$(gh api graphql -f query='
+              query($projectId: ID!, $contentId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on Issue {
+                            id
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              -f contentId="$ISSUE_NODE_ID" \
+              --jq ".data.node.items.nodes[] | select(.content.id == \"$ISSUE_NODE_ID\") | .id" 2>/dev/null || echo "")
+
+            # Item が存在しない場合は追加
+            if [[ -z "$ITEM_ID" ]]; then
+              echo "Project に Item を追加中..."
+
+              ITEM_ID=$(gh api graphql -f query='
+                mutation($projectId: ID!, $contentId: ID!) {
+                  addProjectV2ItemById(input: {
+                    projectId: $projectId
+                    contentId: $contentId
+                  }) {
+                    item {
+                      id
+                    }
+                  }
+                }
+              ' -f projectId="$PROJECT_ID" \
+                -f contentId="$ISSUE_NODE_ID" \
+                --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null || echo "")
+
+              if [[ -z "$ITEM_ID" ]]; then
+                echo "❌ Item の追加に失敗しました"
+                continue
+              fi
+
+              echo "✓ Item を追加しました: $ITEM_ID"
+            else
+              echo "✓ Item は既に存在します: $ITEM_ID"
+            fi
+
+            # Phase 2: カスタムフィールドの更新
+            echo "カスタムフィールドを更新中..."
+
+            # レート制限を再チェック（複数 Feature 処理時）
+            check_rate_limit
+
+            # 各フィールドのオプション ID を取得
+            FIELD_OPTIONS=$(gh api graphql -f query='
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    fields(first: 20) {
+                      nodes {
+                        ... on ProjectV2SingleSelectField {
+                          id
+                          name
+                          options { id name }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f projectId="$PROJECT_ID")
+
+            # Status フィールドの更新
+            if [[ -n "$STATUS" ]]; then
+              # STATUS 値を GitHub Project の表記に変換
+              case "$STATUS" in
+                "planning") PROJECT_STATUS="Planning" ;;
+                "implementing") PROJECT_STATUS="Implementing" ;;
+                "testing") PROJECT_STATUS="Testing" ;;
+                "completed") PROJECT_STATUS="Completed" ;;
+                "on-hold") PROJECT_STATUS="On Hold" ;;
+                *) PROJECT_STATUS="" ;;
+              esac
+
+              if [[ -n "$PROJECT_STATUS" ]]; then
+                STATUS_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_STATUS" '.data.node.fields.nodes[] | select(.name == "SDLC Status") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$STATUS_OPTION_ID" ]]; then
+                  if gh api graphql -f query='
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $optionId }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  ' -f projectId="$PROJECT_ID" \
+                    -f itemId="$ITEM_ID" \
+                    -f fieldId="$FIELD_ID_STATUS" \
+                    -f optionId="$STATUS_OPTION_ID" > /dev/null 2>&1; then
+                    echo "  ✓ Status を更新: $PROJECT_STATUS"
+                  else
+                    echo "  ⚠️ Status の更新に失敗しました: $PROJECT_STATUS"
+                  fi
+                else
+                  echo "  ⚠️ Status のオプション ID が見つかりません: $PROJECT_STATUS"
+                fi
+              fi
+            fi
+
+            # Feature ID フィールドの更新
+            if [[ -n "$FEATURE_ID" ]]; then
+              if gh api graphql -f query='
+                mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $text: String!) {
+                  updateProjectV2ItemFieldValue(input: {
+                    projectId: $projectId
+                    itemId: $itemId
+                    fieldId: $fieldId
+                    value: { text: $text }
+                  }) {
+                    projectV2Item { id }
+                  }
+                }
+              ' -f projectId="$PROJECT_ID" \
+                -f itemId="$ITEM_ID" \
+                -f fieldId="$FIELD_ID_FEATURE_ID" \
+                -f text="$FEATURE_ID" > /dev/null 2>&1; then
+                echo "  ✓ Feature ID を更新: $FEATURE_ID"
+              else
+                echo "  ⚠️ Feature ID の更新に失敗しました: $FEATURE_ID"
+              fi
+            fi
+
+            # Risk Level フィールドの更新
+            if [[ -n "$RISK_LEVEL" ]]; then
+              # RISK_LEVEL 値を GitHub Project の表記に変換
+              case "$RISK_LEVEL" in
+                "low") PROJECT_RISK="Low" ;;
+                "medium") PROJECT_RISK="Medium" ;;
+                "high") PROJECT_RISK="High" ;;
+                *) PROJECT_RISK="" ;;
+              esac
+
+              if [[ -n "$PROJECT_RISK" ]]; then
+                RISK_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_RISK" '.data.node.fields.nodes[] | select(.name == "Risk Level") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$RISK_OPTION_ID" ]]; then
+                  if gh api graphql -f query='
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $optionId }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  ' -f projectId="$PROJECT_ID" \
+                    -f itemId="$ITEM_ID" \
+                    -f fieldId="$FIELD_ID_RISK_LEVEL" \
+                    -f optionId="$RISK_OPTION_ID" > /dev/null 2>&1; then
+                    echo "  ✓ Risk Level を更新: $PROJECT_RISK"
+                  else
+                    echo "  ⚠️ Risk Level の更新に失敗しました: $PROJECT_RISK"
+                  fi
+                else
+                  echo "  ⚠️ Risk Level のオプション ID が見つかりません: $PROJECT_RISK"
+                fi
+              fi
+            fi
+
+            # Decision Status フィールドの更新
+            if [[ -n "$DECISION_STATUS" ]]; then
+              # DECISION_STATUS 値を GitHub Project の表記に変換
+              case "$DECISION_STATUS" in
+                "pending") PROJECT_DECISION="Pending" ;;
+                "confirmed") PROJECT_DECISION="Confirmed" ;;
+                "rejected") PROJECT_DECISION="Rejected" ;;
+                *) PROJECT_DECISION="" ;;
+              esac
+
+              if [[ -n "$PROJECT_DECISION" ]]; then
+                DECISION_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_DECISION" '.data.node.fields.nodes[] | select(.name == "Decision Status") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$DECISION_OPTION_ID" ]]; then
+                  if gh api graphql -f query='
+                    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                      updateProjectV2ItemFieldValue(input: {
+                        projectId: $projectId
+                        itemId: $itemId
+                        fieldId: $fieldId
+                        value: { singleSelectOptionId: $optionId }
+                      }) {
+                        projectV2Item { id }
+                      }
+                    }
+                  ' -f projectId="$PROJECT_ID" \
+                    -f itemId="$ITEM_ID" \
+                    -f fieldId="$FIELD_ID_DECISION_STATUS" \
+                    -f optionId="$DECISION_OPTION_ID" > /dev/null 2>&1; then
+                    echo "  ✓ Decision Status を更新: $PROJECT_DECISION"
+                  else
+                    echo "  ⚠️ Decision Status の更新に失敗しました: $PROJECT_DECISION"
+                  fi
+                else
+                  echo "  ⚠️ Decision Status のオプション ID が見つかりません: $PROJECT_DECISION"
+                fi
+              fi
+            fi
+
+            echo "✓ $FEATURE_ID の同期が完了しました"
+            echo ""
+          done
+
+          echo "=========================================="
+          echo "全ての Feature の同期が完了しました"
+          echo "=========================================="
