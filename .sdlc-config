@@ -1,0 +1,17 @@
+# AI-Driven SDLC Configuration
+# Generated: 2025-12-26 16:22:05
+
+# Repository
+REPO_OWNER=lleizh
+REPO_NAME=ai-driven-sdlc
+
+# GitHub Project
+PROJECT_ID=PVT_kwHOAmY8_c4BLWRK
+PROJECT_NUMBER=4
+PROJECT_URL=https://github.com/users/lleizh/projects/4
+
+# Custom Field IDs
+FIELD_ID_STATUS=PVTSSF_lAHOAmY8_c4BLWRKzg68wDg
+FIELD_ID_FEATURE_ID=PVTF_lAHOAmY8_c4BLWRKzg68wDk
+FIELD_ID_RISK_LEVEL=PVTSSF_lAHOAmY8_c4BLWRKzg68wDo
+FIELD_ID_DECISION_STATUS=PVTSSF_lAHOAmY8_c4BLWRKzg68wEU
