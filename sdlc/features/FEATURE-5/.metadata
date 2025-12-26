@@ -2,6 +2,6 @@ FEATURE_ID=FEATURE-5
 RISK_LEVEL=low
 STATUS=planning
 CREATED_DATE=2025-12-26
-DECISION_STATUS=pending
+DECISION_STATUS=confirmed
 ISSUE_URL=https://github.com/lleizh/ai-driven-sdlc/issues/5
 BRANCH=feature/FEATURE-5

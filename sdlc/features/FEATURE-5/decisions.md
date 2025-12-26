@@ -7,9 +7,9 @@
 
 ## Decision 1: 除算エラーの修正方法
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**: 2025-12-26  
-**Decision Maker**: TBD
+**Decision Maker**: lleizh
 
 ### Context
 `./sdlc-cli report` コマンドの958行目で、`calc "$revision_count / $total"` を実行する際に、`$total` が 0 の場合に除算エラーが発生する。この問題に対する修正方法を決定する必要がある。
@@ -41,6 +41,8 @@
 
 **Cost/Effort**: 中（関数の設計、実装、テストが必要）
 
+**Rejected Reason**: 現時点でこの箇所以外に同様の問題は確認されておらず、オーバーエンジニアリングになる。必要に応じて将来的に検討可能。
+
 #### Option C: `$total = 0` の場合にデフォルト値を設定
 **Pros**:
 - 平均値を常に表示できる
@@ -53,14 +55,24 @@
 
 **Cost/Effort**: 低（実装は簡単だが、仕様の検討が必要）
 
+**Rejected Reason**: 0件の平均は数学的に未定義であり、デフォルト値を表示するとユーザーに誤解を与える可能性がある。統計的に正しくない。
+
 ### Decision
-**Chosen Option**: TBD（チームで議論して決定）
+**Chosen Option**: Option A（条件判定に `$total -gt 0` を追加）
 
 **Rationale**:
-<!-- 決定後に記入 -->
+Low Risk の修正であるため、最小限の変更が望ましい。Option A は以下の理由で最適：
+- 1行の条件追加のみで問題が解決できる
+- テストとレビューが容易で、即日対応可能
+- 後方互換性を完全に維持（既存の動作に一切影響しない）
+- 可読性が高く、意図が明確で保守性が高い
+- Non-Negotiables（既存機能への影響最小限、Feature が存在する場合の動作変更なし）を完全に満たす
+
+Option B は将来的に同様の問題が複数発見された場合に検討すべきだが、現時点では不要。Option C は数学的に不正確。
 
 **Accepted Risks**:
-- TBD
+- 対症療法的な修正であること（根本的な設計改善ではない）
+- 他の箇所に同様の問題がある可能性（ただし R001 で緩和策を実施）
 
 **Non-Negotiables**:
 - 既存機能への影響を最小限にすること
@@ -82,10 +94,10 @@
 ## Quick Reference
 
 ### All Confirmed Decisions
-（まだ確定した Decision はありません）
+1. **除算エラーの修正方法**: Option A（条件判定に `$total -gt 0` を追加）- 2025-12-26
 
 ### Pending Decisions
-1. **除算エラーの修正方法**: Option選択待ち - TBD
+（全ての Decision が確定しました）
 
 ---
 
