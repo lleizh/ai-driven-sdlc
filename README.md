@@ -45,28 +45,6 @@ gh auth login
 | `feature/FEATURE-XXX` | 低リスク機能の開発 | - |
 | `design/FEATURE-XXX` | 中/高リスク機能の Design Review | - |
 
-### 開発フロー
-
-#### 1. 新規 Feature の開始
-
-```bash
-# develop から feature ブランチを作成
-git checkout develop
-git pull origin develop
-git checkout -b feature/FEATURE-123
-```
-
-#### 2. PR の base ブランチ
-
-- **新規 PR**: base は `develop`
-- **既存 PR（移行期間）**: master base のまま → master にマージ後、develop に反映
-
-#### 3. マージフロー
-
-```
-feature/FEATURE-123 → develop → master
-```
-
 ### GitHub Actions による自動同期
 
 `.metadata` ファイルの変更時、以下のブランチで GitHub Projects が自動更新されます：
