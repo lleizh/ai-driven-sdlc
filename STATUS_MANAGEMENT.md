@@ -1,11 +1,33 @@
 # AI-Driven SDLC 状態管理システム完全ガイド
 
+## 0. コマンド一覧
+
+### 0.1 全コマンド（実行順）
+
+| # | コマンド | STATUS更新 | DECISION_STATUS更新 | 備考 |
+|---|----------|-----------|-------------------|------|
+| 0 | `/sdlc-issue` | **Backlog** (Projects) | - | Issue作成 + `sdlc:track` label → Actions が Backlog に追加 |
+| 1 | `/sdlc-init` | **planning** | **pending** | Feature初期化 + .metadata作成 |
+| 2 | `/sdlc-pr-design` | **design** | - | Design Review PR作成 |
+| 3 | `/sdlc-decision` | - | **confirmed** | Decision確定 |
+| 4 | `/sdlc-impl-plan` | - | - | 実装計画生成（任意） |
+| 5 | `/sdlc-coding` | **implementing** | - | AI実装開始 |
+| 6 | `/sdlc-test` | **testing** | - | テスト実行 |
+| 7 | `/sdlc-check` | - | - | 一致性確認（表示のみ） |
+| 8 | `/sdlc-pr-code` | **review** | - | Implementation PR作成 |
+| 9 | `/sdlc-revise` | **blocked** | **revised** | Decision修正 + PREVIOUS_STATUS保存 |
+| 10 | `/sdlc-resume` | **implementing** | - | blocked解除 + STATUS復元 |
+| 11 | PR merge | **completed** | - | 自動更新（GitHub Actions） |
+
+---
+
 ## 1. 状態フィールド一覧
 
-### 1.1 STATUS（7つの値）
+### 1.1 STATUS（8つの値）
 
 | STATUS | 説明 | フェーズ | 設定タイミング |
 |--------|------|----------|---------------|
+| **Backlog** | Issue作成済み、未着手 | 📥 Backlog | `/sdlc-issue` + GitHub Actions |
 | **planning** | 初期計画段階 | 📋 Planning | `/sdlc-init` |
 | **design** | 設計レビュー中 | 🎨 Design | `/sdlc-pr-design` |
 | **implementing** | 実装中 | 💻 Implementation | `/sdlc-coding` |
@@ -13,6 +35,8 @@
 | **review** | コードレビュー中 | 👀 Review | `/sdlc-pr-code` |
 | **blocked** | 作業停止（revision待ち） | ⚠️ Blocked | `/sdlc-revise` |
 | **completed** | 完了 | ✅ Done | 自動（PR merge時） |
+
+**注**: Backlog は GitHub Projects 専用（`.metadata` には記録されない）。`/sdlc-init` 実行後は planning から始まる。
 
 ### 1.2 DECISION_STATUS（3つの値）
 
@@ -61,24 +85,6 @@ implementing → blocked → (revision PR) → implementing
 /sdlc-revise  PREVIOUS_  /sdlc-resume   STATUS復元
              STATUS保存   (DECISION確定後)
 ```
-
----
-
-## 3. コマンドとSTATUS管理
-
-| # | コマンド | STATUS更新 | DECISION_STATUS更新 | 備考 |
-|---|----------|-----------|-------------------|------|
-| 1 | `/sdlc-init` | **planning** | **pending** | Feature初期化 |
-| 2 | `/sdlc-pr-design` | **design** | - | Design Review PR作成 |
-| 3 | `/sdlc-decision` | - | **confirmed** | Decision確定 |
-| 4 | `/sdlc-impl-plan` | - | - | 実装計画生成（任意） |
-| 5 | `/sdlc-coding` | **implementing** | - | AI実装開始 |
-| 6 | `/sdlc-test` | **testing** | - | テスト実行 |
-| 7 | `/sdlc-check` | - | - | 一致性確認（表示のみ） |
-| 8 | `/sdlc-pr-code` | **review** | - | Implementation PR作成 |
-| 9 | `/sdlc-revise` | **blocked** | **revised** | Decision修正 + PREVIOUS_STATUS保存 |
-| 10 | `/sdlc-resume` | **implementing** | - | blocked解除 + STATUS復元 |
-| 11 | PR merge | **completed** | - | 自動更新（GitHub Actions） |
 
 ---
 
