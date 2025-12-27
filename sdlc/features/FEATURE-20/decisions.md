@@ -83,9 +83,9 @@ Configure the default Status field with SDLC status values directly (no mapping 
 
 ### Chosen Option
 
-Create a custom "Status" field during install.sh with SDLC status values. This eliminates the need for mapping logic in workflows.
+Modify the default "Status" field options during install.sh to use SDLC status values. This eliminates the need for mapping logic in workflows.
 
-Note: We create a custom field named "Status" rather than modifying GitHub's default Status field, as the default field cannot be customized via API.
+Note: We modify GitHub's default Status field options (replace Todo/In Progress/Done with our SDLC values) using the `updateProjectV2Field` mutation.
 
 ### Rejected Options
 
@@ -98,23 +98,23 @@ Note: We create a custom field named "Status" rather than modifying GitHub's def
 ### Rationale
 
 - Preserves all SDLC workflow stages with full granularity
-- Creates a custom "Status" field with our SDLC values
+- Uses GitHub's native Status field (no custom field needed)
+- Modifies default field options to use SDLC values
 - No mapping logic needed in workflows (direct 1:1 correspondence)
 - Maintains clarity and simplicity
 - All status transitions are explicit and traceable
-- Avoids limitations of GitHub's default Status field (cannot be customized)
 
 ### Accepted Risks
 
-- Creates a custom field rather than using GitHub's built-in Status field
-- New Projects will need to run install.sh to create the Status field
-- Team members need to use the custom "Status" field, not the default one
+- Default Status field options are replaced, losing GitHub's default values (Todo/In Progress/Done)
+- New Projects will need to run install.sh to configure Status field options
+- Existing items in old projects will need manual status migration
 
 ### Non-Negotiables
 
 - Must maintain all SDLC stages (Planning, Design, Implementation, Testing, Review, Done, Blocked)
-- Status field must be created during install.sh
-- Field name must be "Status" (same as default, for consistency)
+- Status field options must be updated during install.sh
+- Must use GitHub's default Status field (not create a custom one)
 
 ### Consequences
 
