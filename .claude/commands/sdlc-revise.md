@@ -143,21 +143,20 @@ DECISION_STATUS=revised
 ### 4. Revision PR の作成
 
 **ブランチ確認**：
-- 中/高リスクの場合：design/{FEATURE_ID} ブランチに戻る
-- 低リスクの場合：feature/{FEATURE_ID} ブランチのまま
+- 現在の feature/{FEATURE_ID} ブランチから作成
 
 **PR 作成**：
+
+**中/高リスクの場合**：Design の変更が大きい場合は Revision PR を作成
 ```bash
-# 中/高リスクの場合
-git checkout design/{FEATURE_ID}
 gh pr create \
   --title "Revision: {FEATURE_ID} - Decision Revision #{N}" \
   --body "{Revision の詳細}" \
   --label "decision-revision" \
   --base develop
-
-# 低リスクの場合は PR 不要（同じ feature ブランチで続行）
 ```
+
+**低リスクの場合**：PR 不要（同じ feature ブランチで続行）
 
 ### 5. 完了メッセージ
 

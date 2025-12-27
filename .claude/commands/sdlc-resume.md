@@ -60,10 +60,16 @@ Revision の内容:
 # feature ブランチに切り替え
 git checkout feature/{FEATURE_ID}
 
-# develop から最新の文書を取得
-git pull origin develop
+# develop から最新の文書を取得（rebase）
+git pull origin develop --rebase
 
-# マージコンフリクトがあれば警告
+# rebase コンフリクトがある場合
+if [ $? -ne 0 ]; then
+  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
+  echo "   git rebase --continue"
+  echo "   Then re-run /sdlc-resume {FEATURE_ID}"
+  exit 1
+fi
 ```
 
 ### 6. メタデータ更新

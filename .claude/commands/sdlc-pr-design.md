@@ -66,15 +66,30 @@
 - Decisions が CONFIRMED
 - チーム合意
 
-### 3. ブランチ確認
+### 3. ブランチ確認と Rebase
 
 現在のブランチを確認：
-- `design/{FEATURE_ID}` → OK
+- `feature/{FEATURE_ID}` → OK
 - それ以外 → 警告表示、続行確認
 
 ブランチが存在しない場合：
 ```bash
-git checkout -b design/{FEATURE_ID}
+git checkout -b feature/{FEATURE_ID}
+```
+
+develop から最新を取得して rebase：
+```bash
+echo "📊 Rebasing with develop..."
+git fetch origin develop
+git rebase origin/develop
+
+# コンフリクトがある場合
+if [ $? -ne 0 ]; then
+  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
+  echo "   git rebase --continue"
+  echo "   Then re-run /sdlc-pr-design {FEATURE_ID}"
+  exit 1
+fi
 ```
 
 ### 4. メタデータ更新
@@ -85,9 +100,13 @@ STATUS=design
 LAST_UPDATED={YYYY-MM-DD}
 ```
 
-### 5. PR 作成
+### 5. Push と PR 作成
 
 ```bash
+# feature ブランチを push
+git push origin feature/{FEATURE_ID}
+
+# PR を作成
 gh pr create \
   --title "Design: {FEATURE_ID} - {タイトル}" \
   --body "{生成した PR Description}" \
@@ -102,9 +121,13 @@ gh pr create \
 
 📋 PR 情報:
 - URL: {GitHub PR URL}
-- Branch: design/{FEATURE_ID}
+- Branch: feature/{FEATURE_ID}
 - Label: design-review
 - Status: design
+
+⚠️ GitHub Branch Protection:
+PR マージ前に、GitHub が自動的に branch が up-to-date か確認します。
+数日後に develop が進んだ場合、GitHub UI の "Update branch" をクリックしてください。
 
 次のステップ:
 - チームメンバーをレビュアーに追加
