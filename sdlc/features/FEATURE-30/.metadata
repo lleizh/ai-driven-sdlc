@@ -1,0 +1,8 @@
+FEATURE_ID=FEATURE-30
+RISK_LEVEL=low
+STATUS=review
+CREATED_DATE=2025-12-27
+DECISION_STATUS=confirmed
+ISSUE_URL=https://github.com/lleizh/ai-driven-sdlc/issues/30
+BRANCH=feature/FEATURE-30
+LAST_UPDATED=2025-12-27
