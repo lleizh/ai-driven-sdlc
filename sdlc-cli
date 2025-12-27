@@ -1408,7 +1408,7 @@ sync_to_projects() {
 
             if [[ -n "$project_decision" ]]; then
                 local decision_option_id
-                decision_option_id=$(echo "$field_options" | jq -r --arg name "$project_decision" '.data.node.fields.nodes[] | select(.name == \"Decision Status\") | .options[] | select(.name == \$name) | .id')
+                decision_option_id=$(echo "$field_options" | jq -r --arg name "$project_decision" '.data.node.fields.nodes[] | select(.name == "Decision Status") | .options[] | select(.name == $name) | .id')
 
                 if [[ -n "$decision_option_id" ]] && [[ "$decision_option_id" != "null" ]]; then
                     if gh api graphql -f query='
