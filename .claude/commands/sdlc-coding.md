@@ -52,12 +52,32 @@ decisions.md の Chosen Options に基づいて実装：
 ### 5. メタデータ更新
 
 `.metadata` を更新：
-```
-STATUS=implementing
-BRANCH=feature/{FEATURE_ID}
+```bash
+# STATUS を implementing に変更
+sed -i '' 's/^STATUS=.*/STATUS=implementing/' sdlc/features/${FEATURE_ID}/.metadata
+
+# LAST_UPDATED を更新
+current_date=$(date +%Y-%m-%d)
+if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
+  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
+fi
 ```
 
-### 6. 完了メッセージ
+### 6. Commit と Push
+
+```bash
+# .metadata の変更を commit
+git add sdlc/features/${FEATURE_ID}/.metadata
+git commit -m "chore(${FEATURE_ID}): update STATUS to implementing
+
+Related: #<issue-number>"
+
+git push origin feature/${FEATURE_ID}
+```
+
+### 7. 完了メッセージ
 
 ```
 ✅ 実装が完了しました

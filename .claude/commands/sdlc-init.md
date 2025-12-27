@@ -94,7 +94,25 @@ GitHub Issue から SDLC 文書を自動生成します。
    
    Write ツールで各ファイルに書き込む
 
-9. **完了メッセージ**
+9. **初期 Commit と Push**
+   
+   ```bash
+   # 生成された全ファイルを add
+   git add sdlc/features/${FEATURE_ID}/
+   
+   # 初期 commit
+   git commit -m "docs: Generate SDLC documents for ${FEATURE_ID}
+   
+   Generated from Issue: ${ISSUE_URL}
+   Risk Level: ${RISK_LEVEL}
+   
+   Related: #${ISSUE_NUMBER}"
+   
+   # ブランチを push
+   git push -u origin feature/${FEATURE_ID}
+   ```
+
+10. **完了メッセージ**
    ```markdown
    ✅ SDLC 文書を生成しました
    

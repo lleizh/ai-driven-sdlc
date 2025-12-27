@@ -34,7 +34,7 @@ load_metadata() {
 
     # Reset variables to avoid pollution
     unset FEATURE_ID RISK_LEVEL STATUS CREATED_DATE DECISION_STATUS ISSUE_URL BRANCH
-    unset REVISION_COUNT LAST_UPDATED
+    unset REVISION_COUNT LAST_UPDATED LAST_SYNC
 
     # Parse .metadata line by line safely (no code execution)
     while IFS='=' read -r key value; do
@@ -63,6 +63,7 @@ load_metadata() {
             BRANCH) BRANCH="$value" ;;
             REVISION_COUNT) REVISION_COUNT="$value" ;;
             LAST_UPDATED) LAST_UPDATED="$value" ;;
+            LAST_SYNC) LAST_SYNC="$value" ;;
             REVISION_*)
                 # Handle REVISION_N_DATE, REVISION_N_MAKER, etc.
                 eval "$key=\"\$value\""
@@ -190,6 +191,12 @@ GitHub Projects 同期:
                                     - Feature ID でマッチング
                                     - 存在しない場合は追加
                                     - Issue URL がない feature はスキップ
+
+アーカイブ:
+  archive [--days N] [--dry-run]    完了した Feature をアーカイブ
+                                    --days: 完了後の経過日数（デフォルト: 90日）
+                                    --dry-run: 実際の移動をせずに確認のみ
+                                    --force: 既存のアーカイブを上書き
 
 レポート:
   report                            統計レポートを生成
@@ -1080,6 +1087,297 @@ generate_report() {
 }
 
 # ========================================
+# Archive completed features
+# ========================================
+archive_features() {
+    local days=90  # Default: 90 days
+    local dry_run=false
+    local force=false
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --days)
+                days="$2"
+                if [[ ! "$days" =~ ^[0-9]+$ ]]; then
+                    print_error "Invalid --days value: $days (must be a positive integer)"
+                    return 1
+                fi
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --force)
+                force=true
+                shift
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                echo "Usage: sdlc-cli archive [--days N] [--dry-run] [--force]"
+                return 1
+                ;;
+        esac
+    done
+
+    print_header "Feature アーカイブ"
+
+    if [[ "$dry_run" == true ]]; then
+        print_info "🔍 Dry-run モード: 実際の移動は行いません"
+        echo ""
+    fi
+
+    # Archive directory
+    local archive_dir="${SDLC_DIR}/archive"
+    local current_year=$(date +%Y)
+    local current_date=$(date +%Y-%m-%d)
+    local cutoff_date=$(date -v-${days}d +%Y-%m-%d 2>/dev/null || date -d "${days} days ago" +%Y-%m-%d 2>/dev/null)
+
+    if [[ -z "$cutoff_date" ]]; then
+        print_error "日付計算に失敗しました"
+        return 1
+    fi
+
+    print_info "アーカイブ条件:"
+    echo "  - STATUS: completed"
+    echo "  - 完了後の経過日数: ${days}日以上"
+    echo "  - カットオフ日: ${cutoff_date}"
+    echo ""
+
+    # Find completed features
+    local feature_count=0
+    local archived_count=0
+    local skipped_count=0
+
+    if [[ ! -d "$FEATURES_DIR" ]]; then
+        print_error "Features ディレクトリが見つかりません: $FEATURES_DIR"
+        return 1
+    fi
+
+    for feature_dir in "$FEATURES_DIR"/FEATURE-*; do
+        [[ ! -d "$feature_dir" ]] && continue
+
+        local feature_id=$(basename "$feature_dir")
+        ((feature_count++))
+
+        # Load metadata
+        if ! load_metadata "$feature_dir"; then
+            print_warning "Skipping ${feature_id}: .metadata の読み込みに失敗"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Check STATUS
+        if [[ "$STATUS" != "completed" ]]; then
+            continue
+        fi
+
+        # Get completion date (use LAST_UPDATED or CREATED_DATE)
+        local completion_date="${LAST_UPDATED:-$CREATED_DATE}"
+        if [[ -z "$completion_date" ]]; then
+            print_warning "Skipping ${feature_id}: 完了日が不明"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Compare dates (YYYY-MM-DD format)
+        if [[ "$completion_date" > "$cutoff_date" ]]; then
+            continue
+        fi
+
+        # Determine archive year (use completion year)
+        local archive_year="${completion_date:0:4}"
+        local target_dir="${archive_dir}/${archive_year}/${feature_id}"
+
+        echo "📦 ${feature_id}"
+        echo "   完了日: ${completion_date}"
+        echo "   移動先: sdlc/archive/${archive_year}/${feature_id}"
+
+        if [[ "$dry_run" == true ]]; then
+            print_info "   [Dry-run] 移動をスキップ"
+            ((archived_count++))
+            echo ""
+            continue
+        fi
+
+        # Check if target already exists
+        if [[ -d "$target_dir" ]]; then
+            if [[ "$force" == false ]]; then
+                print_warning "   移動先が既に存在します。--force で上書き可能"
+                ((skipped_count++))
+                echo ""
+                continue
+            else
+                print_warning "   既存のアーカイブを削除します"
+                rm -rf "$target_dir"
+            fi
+        fi
+
+        # Create archive directory
+        mkdir -p "${archive_dir}/${archive_year}"
+
+        # Move with git mv (preserves history)
+        if git mv "$feature_dir" "$target_dir" 2>/dev/null; then
+            print_success "   移動完了"
+            ((archived_count++))
+
+            # Remove from GitHub Projects
+            if [[ -n "$ISSUE_URL" ]]; then
+                echo "   🗑️  GitHub Projects から削除中..."
+                if remove_from_projects "$feature_id" "$ISSUE_URL"; then
+                    print_success "   Projects から削除しました"
+                else
+                    print_warning "   Projects からの削除に失敗 (手動で削除してください)"
+                fi
+            fi
+        else
+            print_error "   git mv に失敗しました"
+            ((skipped_count++))
+        fi
+
+        echo ""
+    done
+
+    # Summary
+    echo "========================================"
+    if [[ "$dry_run" == true ]]; then
+        print_info "Dry-run 完了"
+    else
+        print_success "アーカイブ完了"
+    fi
+    echo "========================================"
+    echo "  スキャンした Feature 数: ${feature_count}"
+    echo "  アーカイブ対象:          ${archived_count}"
+    echo "  スキップ:                ${skipped_count}"
+    echo ""
+
+    if [[ "$dry_run" == true ]]; then
+        print_info "実際にアーカイブするには --dry-run を外して実行してください"
+    elif [[ $archived_count -gt 0 ]]; then
+        print_info "変更を commit してください:"
+        echo "  git add ."
+        echo "  git commit -m \"chore: archive ${archived_count} completed features\""
+        echo "  git push origin develop"
+    fi
+}
+
+# Remove feature from GitHub Projects
+remove_from_projects() {
+    local feature_id="$1"
+    local issue_url="$2"
+
+    # Check if .sdlc-config exists
+    if [[ ! -f "${SCRIPT_DIR}/.sdlc-config" ]]; then
+        return 1
+    fi
+
+    # Load config
+    source "${SCRIPT_DIR}/.sdlc-config"
+
+    if [[ -z "$GITHUB_PROJECT_ID" ]]; then
+        return 1
+    fi
+
+    # Extract issue number from URL
+    local issue_number
+    issue_number=$(echo "$issue_url" | grep -oE '[0-9]+$')
+    if [[ -z "$issue_number" ]]; then
+        return 1
+    fi
+
+    # Get Issue node ID
+    local issue_node_id
+    issue_node_id=$(gh api graphql -f query='
+      query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issue(number: $number) {
+            id
+          }
+        }
+      }
+    ' -f owner="$GITHUB_OWNER" \
+      -f repo="$GITHUB_REPO" \
+      -F number="$issue_number" \
+      --jq '.data.repository.issue.id' 2>/dev/null)
+
+    if [[ -z "$issue_node_id" ]] || [[ "$issue_node_id" == "null" ]]; then
+        return 1
+    fi
+
+    # Find project item by Feature ID
+    local item_id
+    item_id=$(gh api graphql -f query='
+      query($projectId: ID!) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            items(first: 100) {
+              nodes {
+                id
+                fieldValues(first: 20) {
+                  nodes {
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      field {
+                        ... on ProjectV2Field {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ' -f projectId="$GITHUB_PROJECT_ID" \
+      --jq ".data.node.items.nodes[] | select(.fieldValues.nodes[] | select(.field.name == \"Feature ID\" and .text == \"$feature_id\")) | .id" 2>/dev/null)
+
+    if [[ -z "$item_id" ]] || [[ "$item_id" == "null" ]]; then
+        # Try to find by content ID
+        item_id=$(gh api graphql -f query='
+          query($projectId: ID!) {
+            node(id: $projectId) {
+              ... on ProjectV2 {
+                items(first: 100) {
+                  nodes {
+                    id
+                    content {
+                      ... on Issue {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f projectId="$GITHUB_PROJECT_ID" \
+          --jq ".data.node.items.nodes[] | select(.content.id == \"$issue_node_id\") | .id" 2>/dev/null)
+    fi
+
+    if [[ -z "$item_id" ]] || [[ "$item_id" == "null" ]]; then
+        return 1
+    fi
+
+    # Delete project item
+    gh api graphql -f query='
+      mutation($projectId: ID!, $itemId: ID!) {
+        deleteProjectV2Item(input: {
+          projectId: $projectId
+          itemId: $itemId
+        }) {
+          deletedItemId
+        }
+      }
+    ' -f projectId="$GITHUB_PROJECT_ID" \
+      -f itemId="$item_id" > /dev/null 2>&1
+
+    return $?
+}
+
+# ========================================
 # Sync to GitHub Projects
 # ========================================
 sync_to_projects() {
@@ -1483,6 +1781,9 @@ main() {
             ;;
         sync)
             sync_to_projects "$@"
+            ;;
+        archive)
+            archive_features "$@"
             ;;
         version)
             echo "SDLC CLI version ${VERSION}"

@@ -27,7 +27,71 @@ CONFIRMED でない場合、**エラー終了**：
 /sdlc-pr-design {FEATURE_ID}
 ```
 
-### 2. Feature ドキュメント読取
+### 2. ブランチ確認
+
+現在のブランチを確認：
+```bash
+current_branch=$(git branch --show-current)
+
+if [ "$current_branch" != "feature/${FEATURE_ID}" ]; then
+  echo "⚠️ 警告: 現在のブランチは feature/${FEATURE_ID} ではありません"
+  echo "現在: $current_branch"
+  echo ""
+  echo "このまま続行しますか？ (y/N)"
+  read -r response
+  if [ "$response" != "y" ]; then
+    exit 1
+  fi
+fi
+```
+
+### 3. Rebase with develop
+
+develop から最新を取得して rebase：
+```bash
+echo "📊 Rebasing with develop..."
+git fetch origin develop
+git rebase origin/develop
+
+# コンフリクトがある場合
+if [ $? -ne 0 ]; then
+  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
+  echo "   git rebase --continue"
+  echo "   Then re-run /sdlc-pr-code {FEATURE_ID}"
+  exit 1
+fi
+```
+
+### 4. メタデータ更新
+
+`.metadata` を更新：
+```bash
+# STATUS を review に変更
+sed -i '' 's/^STATUS=.*/STATUS=review/' sdlc/features/${FEATURE_ID}/.metadata
+
+# LAST_UPDATED を更新
+current_date=$(date +%Y-%m-%d)
+if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
+  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
+fi
+```
+
+### 5. Commit と Push
+
+```bash
+# .metadata の変更を commit
+git add sdlc/features/${FEATURE_ID}/.metadata
+git commit -m "chore(${FEATURE_ID}): update STATUS to review
+
+Related: #<issue-number>"
+
+# Force push（rebase したため -f が必要）
+git push origin feature/${FEATURE_ID} -f
+```
+
+### 6. Feature ドキュメント読取
 
 以下のファイルを読み取る：
 - `sdlc/features/{FEATURE_ID}/.metadata`
@@ -36,7 +100,7 @@ CONFIRMED でない場合、**エラー終了**：
 - `sdlc/features/{FEATURE_ID}/30_implementation_plan.md`（存在する場合）
 - `sdlc/features/{FEATURE_ID}/50_test_plan.md`（存在する場合）
 
-### 3. PR Description 生成
+### 7. PR Description 生成
 
 以下のセクションを含む Markdown を生成：
 
@@ -66,37 +130,9 @@ CONFIRMED でない場合、**エラー終了**：
 - コードレビュー承認
 - ドキュメント更新
 
-### 4. ブランチ確認と Rebase
-
-develop から最新を取得して rebase：
-```bash
-echo "📊 Rebasing with develop..."
-git fetch origin develop
-git rebase origin/develop
-
-# コンフリクトがある場合
-if [ $? -ne 0 ]; then
-  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
-  echo "   git rebase --continue"
-  echo "   Then re-run /sdlc-pr-code {FEATURE_ID}"
-  exit 1
-fi
-```
-
-### 5. メタデータ更新
-
-`.metadata` を更新：
-```
-STATUS=review
-LAST_UPDATED={YYYY-MM-DD}
-```
-
-### 6. Push と PR 作成
+### 8. PR 作成
 
 ```bash
-# feature ブランチを push
-git push origin feature/{FEATURE_ID} -f
-
 # PR を作成
 gh pr create \
   --title "{FEATURE_ID}: {タイトル}" \
@@ -105,9 +141,7 @@ gh pr create \
   --base develop
 ```
 
-注：rebase 後は `-f` (force push) が必要です。
-
-### 7. 完了メッセージ
+### 9. 完了メッセージ
 
 ```
 ✅ Implementation PR を作成しました

@@ -220,6 +220,10 @@ Claude Code で対話しながら実装：
 # GitHub Projects 同期
 ./sdlc-cli sync
 
+# 完了した Feature をアーカイブ（90日後）
+./sdlc-cli archive
+./sdlc-cli archive --days 30 --dry-run
+
 # レポート
 ./sdlc-cli report
 ```
@@ -253,13 +257,18 @@ Claude Code で対話しながら実装：
     │   ├── 60_release_plan.md
     │   ├── decisions.md
     │   └── risks.md
-    └── features/                   # Feature 文書（生成される）
-        └── FEATURE-123/
-            ├── .metadata
-            ├── 00_context.md
-            ├── decisions.md
-            ├── risks.md
-            └── ...
+    ├── features/                   # Feature 文書（生成される）
+    │   └── FEATURE-123/
+    │       ├── .metadata
+    │       ├── 00_context.md
+    │       ├── decisions.md
+    │       ├── risks.md
+    │       └── ...
+    └── archive/                    # アーカイブされた Feature
+        └── 2025/                   # 年ごとに整理
+            └── FEATURE-100/
+                ├── .metadata
+                └── ...
 ```
 
 ---
