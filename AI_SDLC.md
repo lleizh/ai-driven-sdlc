@@ -77,22 +77,3 @@ Issue → decisions.md → risks.md → 20_design.md →（必要なら）他
 3. 記録されていないリスクは未評価とみなす
 
 ---
-
-## コマンドの責任範囲（Command Responsibilities）
-
-開発プロセスの各ステップを明確に分離：
-
-| コマンド | 職責 | 失敗原因 | 修復方法 |
-|---------|------|----------|---------|
-| `/sdlc-init` | SDLC 文書の生成 | Issue 不正、GitHub 認証失敗 | Issue 修正、認証確認 |
-| `/sdlc-decision` | Decision の確定 | 矛盾検出（Blocker） | Option 修正または文書更新 |
-| `/sdlc-coding` | コード生成 | 論理エラー、構文エラー | コード修正 |
-| `/sdlc-test` | 機能検証（テスト実行） | テスト失敗 | コード修正またはテスト修正 |
-| `/sdlc-check` | 一致性検証 | Decision 違反、未記録リスク | コード修正または Decision Revision |
-| `/sdlc-pr-code` | PR 作成 | - | - |
-
-### /sdlc-test の特徴
-- `50_test_plan.md` に記載されたテストコマンドを実行
-- テスト結果をサマリー形式で表示（失敗したテストの詳細を含む）
-- E2E テストの実行は `50_test_plan.md` の設定に従う
-- テスト失敗時も正常終了し、結果をレポート（開発者が判断）

@@ -19,7 +19,14 @@ AI を実行エンジンとして使い、人間が意思決定とリスク管�
 
 - [GitHub CLI](https://cli.github.com/) (`gh`) - **必須**
   - SDLC コマンド（`/sdlc-pr-design`, `/sdlc-pr-code` など）で使用
-  - `install.sh` 実行時に GitHub Label を自動作成
+  - `install.sh` 実行時に以下を自動セットアップ:
+    - GitHub Label 作成（feature, bug, risk:high, design-review, implementation, decision-revision）
+    - GitHub Projects v2 作成（プロジェクト名: `SDLC - {repo名}`）
+      - Status フィールド: Planning, Design, Implementation, Testing, Review, Done, Blocked
+      - Feature ID フィールド（テキスト）
+      - Risk Level フィールド: Low, Medium, High
+      - Decision Status フィールド: Pending, Confirmed, Revised
+    - `.sdlc-config` 生成（Project ID とフィールド ID を保存）
 - [Claude Code](https://claude.ai/code) または Claude API アクセス
 
 ```bash
@@ -185,6 +192,9 @@ Claude Code で対話しながら実装：
 
 # 検証
 ./sdlc-cli validate FEATURE-123
+
+# GitHub Projects 同期
+./sdlc-cli sync
 
 # レポート
 ./sdlc-cli report
