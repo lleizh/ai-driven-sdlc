@@ -106,21 +106,21 @@ jobs:
           CURRENT_STATUS=$(grep "^STATUS=" "$METADATA_FILE" | cut -d= -f2)
           echo "現在の STATUS: $CURRENT_STATUS"
 
-          # STATUS が implementing でない場合は警告
-          if [[ "$CURRENT_STATUS" != "implementing" ]]; then
-            echo "⚠️ 警告: STATUS が implementing ではありません (現在: $CURRENT_STATUS)"
+          # STATUS が review でない場合は警告
+          if [[ "$CURRENT_STATUS" != "review" ]]; then
+            echo "⚠️ 警告: STATUS が review ではありません (現在: $CURRENT_STATUS)"
             echo "⚠️ completed への更新をスキップします"
             echo ""
             echo "📋 予想される原因:"
-            echo "- Feature がまだ実装開始されていない (STATUS=planning または design)"
+            echo "- Feature がまだレビュー段階に達していない (STATUS=planning, design, implementing, testing)"
             echo "- すでに completed に更新済み"
             echo "- 手動で STATUS が変更された"
             exit 0
           fi
 
-          # STATUS を implementing → completed に更新
+          # STATUS を review → completed に更新
           # awk を使用してポータブルに実装
-          awk '{if ($0 ~ /^STATUS=implementing$/) print "STATUS=completed"; else print}' "$METADATA_FILE" > "$METADATA_FILE.tmp"
+          awk '{if ($0 ~ /^STATUS=review$/) print "STATUS=completed"; else print}' "$METADATA_FILE" > "$METADATA_FILE.tmp"
           mv "$METADATA_FILE.tmp" "$METADATA_FILE"
 
           # 更新を確認
