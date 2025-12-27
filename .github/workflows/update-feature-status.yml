@@ -19,67 +19,63 @@ jobs:
 
       - name: Extract Feature ID from merge commit
         id: extract
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          # 最新のコミットメッセージを取得
-          COMMIT_MSG=$(git log -1 --pretty=%B)
-          echo "Commit message: $COMMIT_MSG"
+          # 最新のコミット情報を取得
+          COMMIT_SHA="${{ github.sha }}"
+          COMMITTER=$(git log -1 --pretty=%cn "$COMMIT_SHA")
 
-          # PR マージかチェック（通常のマージコミットまたは Squash merge）
-          IS_PR_MERGE=false
-          MERGE_TYPE=""
+          echo "Commit SHA: $COMMIT_SHA"
+          echo "Committer: $COMMITTER"
 
-          # ケース1: 通常のマージコミット（2つの親を持つ）
-          if git log -1 --pretty=%P | grep -q ' '; then
-            echo "✓ マージコミットです（Create a merge commit）"
-            IS_PR_MERGE=true
-            MERGE_TYPE="merge"
-          # ケース2: Squash merge（コミットメッセージに (#数字) を含む）
-          elif echo "$COMMIT_MSG" | grep -qE '\(#[0-9]+\)'; then
-            echo "✓ Squash merge です"
-            IS_PR_MERGE=true
-            MERGE_TYPE="squash"
-          fi
-
-          if [[ "$IS_PR_MERGE" == "false" ]]; then
-            echo "⚠️ PR マージではありません。スキップします。"
+          # Committer が "GitHub" でない場合はスキップ（PR マージではない）
+          if [[ "$COMMITTER" != "GitHub" ]]; then
+            echo "⚠️ Committer が 'GitHub' ではありません。PR マージではないためスキップします。"
             echo "is_merge=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          # マージ元のブランチ名を取得
-          BRANCH_NAME=""
+          echo "✓ Committer が 'GitHub' です。PR マージの可能性があります。"
 
-          # パターン1: "Merge pull request #123 from owner/feature/FEATURE-19"
-          if echo "$COMMIT_MSG" | grep -qE 'Merge pull request.*from.*feature/FEATURE-[0-9]+'; then
-            BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE 'feature/FEATURE-[0-9]+' | head -1)
-          # パターン2: "Merge branch 'feature/FEATURE-19' into develop"
-          elif echo "$COMMIT_MSG" | grep -qE "Merge branch 'feature/FEATURE-[0-9]+'"; then
-            BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "feature/FEATURE-[0-9]+" | head -1)
-          # パターン3: Squash merge - "FEATURE-19: タイトル (#123)"
-          elif echo "$COMMIT_MSG" | grep -qE '^FEATURE-[0-9]+:.*\(#[0-9]+\)'; then
-            BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE '^FEATURE-[0-9]+' | sed 's/^/feature\//')
-          fi
+          # GitHub API を使用して commit に関連する PR を取得
+          echo "GitHub API で PR 情報を取得中..."
+          PR_DATA=$(gh api "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
+            --jq '.[0] | {number: .number, head_ref: .head.ref}' 2>&1)
 
-          if [[ -z "$BRANCH_NAME" ]]; then
-            echo "⚠️ feature ブランチからのマージではありません。スキップします。"
+          if [[ $? -ne 0 ]]; then
+            echo "⚠️ GitHub API 呼び出しに失敗しました: $PR_DATA"
+            echo "⚠️ PR 情報を取得できませんでした。スキップします。"
             echo "is_merge=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "✓ マージ元ブランチ: $BRANCH_NAME"
-          echo "✓ マージタイプ: $MERGE_TYPE"
+          # PR が存在しない場合
+          if [[ -z "$PR_DATA" || "$PR_DATA" == "null" ]]; then
+            echo "⚠️ この commit に関連する PR が見つかりませんでした。スキップします。"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
 
-          # Strict pattern で Feature ID を抽出: ^feature/FEATURE-[0-9]+$
-          if [[ $BRANCH_NAME =~ ^feature/(FEATURE-[0-9]+)$ ]]; then
+          # PR 情報を抽出
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head_ref')
+
+          echo "✓ PR #$PR_NUMBER を検出"
+          echo "✓ Head ブランチ: $PR_HEAD_REF"
+
+          # Strict pattern で feature ブランチをチェック: ^feature/FEATURE-[0-9]+$
+          if [[ $PR_HEAD_REF =~ ^feature/(FEATURE-[0-9]+)$ ]]; then
             FEATURE_ID="${BASH_REMATCH[1]}"
             echo "✓ Feature ID を抽出: $FEATURE_ID"
             echo "is_merge=true" >> $GITHUB_OUTPUT
             echo "feature_id=$FEATURE_ID" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
           else
-            echo "❌ ブランチ名が命名規則に違反しています: $BRANCH_NAME"
-            echo "❌ 期待される形式: feature/FEATURE-[0-9]+ (例: feature/FEATURE-19)"
+            echo "⚠️ feature ブランチではありません: $PR_HEAD_REF"
+            echo "⚠️ 期待される形式: feature/FEATURE-[0-9]+ (例: feature/FEATURE-19)"
             echo "is_merge=false" >> $GITHUB_OUTPUT
-            exit 1
+            exit 0
           fi
 
       - name: Update metadata STATUS
