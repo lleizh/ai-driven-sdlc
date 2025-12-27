@@ -1304,10 +1304,12 @@ sync_to_projects() {
             local project_status
             case "$STATUS" in
                 "planning") project_status="Planning" ;;
-                "implementing") project_status="Implementing" ;;
+                "design") project_status="Design" ;;
+                "implementing") project_status="Implementation" ;;
                 "testing") project_status="Testing" ;;
-                "completed") project_status="Completed" ;;
-                "on-hold") project_status="On Hold" ;;
+                "review") project_status="Review" ;;
+                "completed") project_status="Done" ;;
+                "blocked") project_status="Blocked" ;;
                 *) project_status="" ;;
             esac
 

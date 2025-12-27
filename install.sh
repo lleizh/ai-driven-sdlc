@@ -411,7 +411,8 @@ setup_github_project() {
   # Note: We use GitHub's default "Status" field instead of custom "SDLC Status" (FEATURE-20)
   print_info "カスタムフィールドを作成中..."
 
-  # Get default Status field ID
+  # Get default Status field ID and update with SDLC values
+  print_info "デフォルト Status フィールドを取得中..."
   STATUS_FIELD_ID=$(gh api graphql -f query='
     query($projectId: ID!) {
       node(id: $projectId) {
@@ -430,7 +431,44 @@ setup_github_project() {
   ' -f projectId="$PROJECT_ID" --jq '.data.node.fields.nodes[] | select(.name == "Status") | .id' 2>/dev/null || echo "")
 
   if [[ -n "$STATUS_FIELD_ID" ]]; then
-    print_success "デフォルト Status フィールドを使用: $STATUS_FIELD_ID"
+    print_success "デフォルト Status フィールド取得成功: $STATUS_FIELD_ID"
+
+    # Update Status field options to SDLC values
+    print_info "Status フィールドに SDLC ステータス値を設定中..."
+    gh api graphql -f query='
+      mutation($projectId: ID!, $fieldId: ID!) {
+        updateProjectV2Field(input: {
+          projectId: $projectId
+          fieldId: $fieldId
+          singleSelectOptions: [
+            {name: "Planning", color: GRAY, description: "Planning phase"},
+            {name: "Design", color: BLUE, description: "Design phase"},
+            {name: "Implementation", color: YELLOW, description: "Implementation phase"},
+            {name: "Testing", color: ORANGE, description: "Testing phase"},
+            {name: "Review", color: PURPLE, description: "Review phase"},
+            {name: "Done", color: GREEN, description: "Completed"},
+            {name: "Blocked", color: RED, description: "Blocked"}
+          ]
+        }) {
+          projectV2Field {
+            ... on ProjectV2SingleSelectField {
+              id
+              options {
+                id
+                name
+              }
+            }
+          }
+        }
+      }
+    ' -f projectId="$PROJECT_ID" \
+      -f fieldId="$STATUS_FIELD_ID" > /dev/null 2>&1
+
+    if [[ $? -eq 0 ]]; then
+      print_success "Status フィールドのオプションを SDLC 値に更新しました"
+    else
+      print_warning "Status フィールドのオプション更新に失敗しました（既存の値が保持されます）"
+    fi
   else
     print_warning "Status フィールドが見つかりません"
   fi

@@ -283,15 +283,15 @@ jobs:
 
             # Status フィールドの更新（デフォルト Status フィールドを使用）
             if [[ -n "$STATUS" ]]; then
-              # STATUS 値を GitHub Project の標準 Status 値に変換（D-002 のマッピング戦略）
+              # STATUS 値を GitHub Project の表記に変換（直接マッピング、install.sh で設定済み）
               case "$STATUS" in
-                "planning") PROJECT_STATUS="Todo" ;;
-                "design") PROJECT_STATUS="In Progress" ;;
-                "implementing") PROJECT_STATUS="In Progress" ;;
-                "testing") PROJECT_STATUS="In Progress" ;;
-                "review") PROJECT_STATUS="In Review" ;;
+                "planning") PROJECT_STATUS="Planning" ;;
+                "design") PROJECT_STATUS="Design" ;;
+                "implementing") PROJECT_STATUS="Implementation" ;;
+                "testing") PROJECT_STATUS="Testing" ;;
+                "review") PROJECT_STATUS="Review" ;;
                 "completed") PROJECT_STATUS="Done" ;;
-                "on-hold") PROJECT_STATUS="Todo" ;;
+                "blocked") PROJECT_STATUS="Blocked" ;;
                 *) PROJECT_STATUS="" ;;
               esac
 

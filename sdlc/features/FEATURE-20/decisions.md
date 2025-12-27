@@ -72,17 +72,18 @@ When migrating from "SDLC Status" to the default Status field, we need to define
 
 ### Decision
 
-Map SDLC Status values to default Status field values as follows:
-- Planning → Todo
-- Design → In Progress
-- Implementation → In Progress
-- Testing → In Progress
-- Review → In Review
+Configure the default Status field with SDLC status values directly (no mapping needed):
+- Planning → Planning
+- Design → Design
+- Implementation → Implementation
+- Testing → Testing
+- Review → Review
 - Done → Done
+- Blocked → Blocked
 
 ### Chosen Option
 
-Use the mapping strategy above that consolidates SDLC stages into GitHub's standard status values while preserving the essential workflow stages.
+Update the default Status field options during install.sh to use our SDLC status values directly. This eliminates the need for mapping logic in workflows.
 
 ### Rejected Options
 
@@ -94,31 +95,33 @@ Use the mapping strategy above that consolidates SDLC stages into GitHub's stand
 
 ### Rationale
 
-- Preserves the essential workflow stages
-- Aligns with GitHub's standard status values
-- Maintains clarity without over-complicating
-- Balances simplicity with necessary granularity
+- Preserves all SDLC workflow stages with full granularity
+- Uses GitHub's native Status field (simpler than custom fields)
+- No mapping logic needed in workflows (direct 1:1 correspondence)
+- Maintains clarity and simplicity
+- All status transitions are explicit and traceable
 
 ### Accepted Risks
 
-- Loss of fine-grained status tracking (Design, Implementation, Testing stages merge into "In Progress")
-- May need to rely on labels or other mechanisms for detailed status when needed
+- Default Status field options are customized, deviating from GitHub's default values
+- New Projects will need to run install.sh to configure Status field correctly
 
 ### Non-Negotiables
 
-- Must maintain clear distinction between Todo, In Progress, Review, and Done states
-- Migration must be reversible if needed
+- Must maintain all SDLC stages (Planning, Design, Implementation, Testing, Review, Done, Blocked)
+- Status field must be configured during install.sh
 
 ### Consequences
 
 #### Positive
-- Clear migration path
-- Maintains workflow continuity
-- Compatible with GitHub's native features
+- Full granularity maintained (all SDLC stages visible)
+- Simple, direct mapping (no translation logic)
+- Works seamlessly with GitHub's native Status field
+- Easy to understand for all team members
 
 #### Negative
-- Some granularity is lost (Design, Implementation, Testing all map to "In Progress")
-- May need to rely on labels or other fields for detailed status tracking
+- Requires running install.sh to configure Status field
+- Status field options differ from GitHub's defaults
 
 ---
 
