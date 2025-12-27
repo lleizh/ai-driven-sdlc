@@ -68,13 +68,12 @@
 
 ### 3. ブランチ確認と Rebase
 
-現在のブランチを確認：
-- `feature/{FEATURE_ID}` → OK
-- それ以外 → 警告表示、続行確認
-
-ブランチが存在しない場合：
+現在のブランチを確認、存在しない場合は作成：
 ```bash
-git checkout -b feature/{FEATURE_ID}
+current_branch=$(git branch --show-current)
+if [ "$current_branch" != "feature/{FEATURE_ID}" ]; then
+  git checkout -b feature/{FEATURE_ID}
+fi
 ```
 
 develop から最新を取得して rebase：
@@ -124,10 +123,6 @@ gh pr create \
 - Branch: feature/{FEATURE_ID}
 - Label: design-review
 - Status: design
-
-⚠️ GitHub Branch Protection:
-PR マージ前に、GitHub が自動的に branch が up-to-date か確認します。
-数日後に develop が進んだ場合、GitHub UI の "Update branch" をクリックしてください。
 
 次のステップ:
 - チームメンバーをレビュアーに追加

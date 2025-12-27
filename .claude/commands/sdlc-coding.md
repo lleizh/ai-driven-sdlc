@@ -21,20 +21,13 @@ Decision 確定後、AI が実装を実行します。
 
 ### 2. ブランチ確認
 
-現在のブランチを確認：
-- `feature/{FEATURE_ID}` → OK
-- それ以外 → エラー終了
-
 ```bash
-# feature ブランチに切り替え（まだ切り替えていない場合）
+# feature ブランチに切り替え
 git checkout feature/{FEATURE_ID}
 
 # develop から最新のドキュメントを取得
 git pull origin develop --rebase
 ```
-
-注：Design Review PR がマージされた後、develop には最新のドキュメントが含まれています。
-rebase により、feature ブランチに最新のドキュメント（CONFIRMED decisions 含む）が反映されます。
 
 ### 3. ドキュメント読取
 

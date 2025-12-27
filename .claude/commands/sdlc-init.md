@@ -25,10 +25,6 @@ GitHub Issue から SDLC 文書を自動生成します。
 
 4. **Git ブランチ作成**
    
-   **前提**: develop ブランチから作成
-   
-   すべての Risk Level で統一:
-   
    ```bash
    git checkout develop
    git pull origin develop
@@ -36,8 +32,6 @@ GitHub Issue から SDLC 文書を自動生成します。
    ```
    
    例: `git checkout -b feature/FEATURE-123`
-   
-   理由：単一ブランチで文書とコードを管理。Design Review と Implementation Review は PR のラベルで区別。
 
 5. **ディレクトリ作成**
    ```bash
@@ -54,8 +48,6 @@ GitHub Issue から SDLC 文書を自動生成します。
    ISSUE_URL={Issue URL}
    BRANCH=feature/{FEATURE_ID}
    ```
-   
-   注：すべての Risk Level で `feature/{FEATURE_ID}` を使用
 
 6. **テンプレート読取 & 文書生成**
    

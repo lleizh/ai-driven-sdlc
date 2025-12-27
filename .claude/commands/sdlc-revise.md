@@ -142,12 +142,7 @@ DECISION_STATUS=revised
 
 ### 4. Revision PR の作成
 
-**ブランチ確認**：
-- 現在の feature/{FEATURE_ID} ブランチから作成
-
-**PR 作成**：
-
-**中/高リスクの場合**：Design の変更が大きい場合は Revision PR を作成
+Design の変更が大きい場合は Revision PR を作成：
 ```bash
 gh pr create \
   --title "Revision: {FEATURE_ID} - Decision Revision #{N}" \
@@ -156,7 +151,7 @@ gh pr create \
   --base develop
 ```
 
-**低リスクの場合**：PR 不要（同じ feature ブランチで続行）
+変更が小さい場合は PR 不要（feature ブランチで続行）
 
 ### 5. 完了メッセージ
 
@@ -178,12 +173,12 @@ gh pr create \
 - DECISION_STATUS: revised
 
 ⚠️ 次のアクション:
-【中/高リスク】
+【変更が大きい場合】
 1. Revision PR をチームレビュー
 2. PR マージ後、実装を再開:
    /sdlc-resume {FEATURE_ID}
 
-【低リスク】
+【変更が小さい場合】
 1. チームに変更内容を共有
 2. 確認後、実装を再開:
    /sdlc-resume {FEATURE_ID}
