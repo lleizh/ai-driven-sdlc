@@ -106,20 +106,38 @@
 以下のフィールドを追加/更新：
 
 ```bash
+# 現在の STATUS を保存
+PREVIOUS_STATUS=$STATUS
+
+# blocked 状態に設定
+STATUS=blocked
+BLOCKED_REASON="Decision revision pending review"
+BLOCKED_DATE={YYYY-MM-DD}
+
+# Revision 情報
 REVISION_COUNT={N}
 REVISION_{N}_DATE={YYYY-MM-DD}
 REVISION_{N}_MAKER={Decision Maker}
 REVISION_{N}_REASON={Why Revise の1行要約}
+
+# Decision 状態を更新
 DECISION_STATUS=revised
 LAST_UPDATED={YYYY-MM-DD}
 ```
 
 **例** (2回目の Revision):
 ```bash
+PREVIOUS_STATUS=implementing
+STATUS=blocked
+BLOCKED_REASON="Decision revision pending review"
+BLOCKED_DATE=2025-12-25
+
 REVISION_COUNT=2
 REVISION_2_DATE=2025-12-25
 REVISION_2_MAKER=Jane Smith
 REVISION_2_REASON=External API changed
+
+DECISION_STATUS=revised
 ```
 
 ### 4. Revision PR の作成
@@ -151,19 +169,27 @@ gh pr create \
 - risks.md (新リスク追加)
 - 30_implementation_plan.md (Revision Alert 追加)
 - 20_design.md (Status: REVISED)
-- .metadata (REVISION_{N} フィールド追加)
+- .metadata (STATUS=blocked, DECISION_STATUS=revised)
+
+⚠️ 実装を一時停止してください
+
+現在の状態:
+- STATUS: blocked
+- PREVIOUS_STATUS: {元の STATUS}
+- DECISION_STATUS: revised
 
 ⚠️ 次のアクション:
 【中/高リスク】
 1. Revision PR をチームレビュー
-2. PR マージ後、develop から最新を取得
-3. 必要に応じて: /sdlc-impl-plan {FEATURE_ID}
-4. feature/{FEATURE_ID} で実装再開
+2. PR マージ後、実装を再開:
+   /sdlc-resume {FEATURE_ID}
 
 【低リスク】
 1. チームに変更内容を共有
-2. 必要に応じて: /sdlc-impl-plan {FEATURE_ID}
-3. 同じ feature ブランチで実装再開
+2. 確認後、実装を再開:
+   /sdlc-resume {FEATURE_ID}
+
+注意: blocked 状態が解除されるまで、実装を進めないでください
 ```
 
 ---
