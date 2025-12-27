@@ -19,29 +19,22 @@ Decision 確定後、AI が実装を実行します。
 - Decision Status が CONFIRMED か確認
 - CONFIRMED でない場合、エラー終了
 
-### 2. ブランチ切替
+### 2. ブランチ確認
 
-Risk Level に応じて分岐：
+現在のブランチを確認：
+- `feature/{FEATURE_ID}` → OK
+- それ以外 → エラー終了
 
-**低リスク**（すでに `feature/{FEATURE_ID}` にいる場合）：
-- そのまま続行（文書とコードを同じブランチで管理）
-
-**中/高リスク**（`design/{FEATURE_ID}` から切り替える場合）：
 ```bash
-# design ブランチの変更を commit（未 commit の場合）
-git add .
-git commit -m "docs: complete design review"
+# feature ブランチに切り替え（まだ切り替えていない場合）
+git checkout feature/{FEATURE_ID}
 
-# develop に切り替えて最新を取得
-git checkout develop
-git pull origin develop
-
-# develop から feature ブランチを作成
-git checkout -b feature/{FEATURE_ID}
+# develop から最新のドキュメントを取得
+git pull origin develop --rebase
 ```
 
-注：中/高リスクでは、design ドキュメントはすでに develop に merge されている。
-feature ブランチは最新の develop（ドキュメント含む）から作成する。
+注：Design Review PR がマージされた後、develop には最新のドキュメントが含まれています。
+rebase により、feature ブランチに最新のドキュメント（CONFIRMED decisions 含む）が反映されます。
 
 ### 3. ドキュメント読取
 

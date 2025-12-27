@@ -66,11 +66,26 @@ CONFIRMED でない場合、**エラー終了**：
 - コードレビュー承認
 - ドキュメント更新
 
-### 4. ブランチ確認
+### 4. ブランチ確認と Rebase
 
 現在のブランチを確認：
 - `feature/{FEATURE_ID}` → OK
 - それ以外 → 警告表示
+
+develop から最新を取得して rebase：
+```bash
+echo "📊 Rebasing with develop..."
+git fetch origin develop
+git rebase origin/develop
+
+# コンフリクトがある場合
+if [ $? -ne 0 ]; then
+  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
+  echo "   git rebase --continue"
+  echo "   Then re-run /sdlc-pr-code {FEATURE_ID}"
+  exit 1
+fi
+```
 
 ### 5. メタデータ更新
 
@@ -80,15 +95,21 @@ STATUS=review
 LAST_UPDATED={YYYY-MM-DD}
 ```
 
-### 6. PR 作成
+### 6. Push と PR 作成
 
 ```bash
+# feature ブランチを push
+git push origin feature/{FEATURE_ID} -f
+
+# PR を作成
 gh pr create \
   --title "{FEATURE_ID}: {タイトル}" \
   --body "{生成した PR Description}" \
   --label "implementation" \
   --base develop
 ```
+
+注：rebase 後は `-f` (force push) が必要です。
 
 ### 7. 完了メッセージ
 
@@ -100,6 +121,10 @@ gh pr create \
 - Branch: feature/{FEATURE_ID}
 - Label: implementation
 - Status: review
+
+⚠️ GitHub Branch Protection:
+PR マージ前に、GitHub が自動的に branch が up-to-date か確認します。
+数日後に develop が進んだ場合、GitHub UI の "Update branch" をクリックしてください。
 
 次のステップ:
 - CI チェックを確認
