@@ -67,6 +67,28 @@ gh auth login
 
 ---
 
+## GitHub Projects の使い方
+
+### Issue を Projects に追加する
+
+Issue に `sdlc:track` ラベルを追加すると、自動的に GitHub Projects に追加されます。
+
+### ラベル削除時の動作
+
+Issue から `sdlc:track` ラベルを削除すると：
+- **`.metadata` なし**（`/sdlc-init` 未実行）→ Projects から削除
+- **`.metadata` あり**（`/sdlc-init` 実行済み）→ Projects に保持
+
+### データの一貫性
+
+Projects は **只読ダッシュボード** として使用してください。データの更新は：
+- `.metadata` ファイルを編集 → commit → 自動同期
+- `/sdlc-init`, `/sdlc-decision` などのコマンドを使用
+
+**注意**: Projects で直接編集しても、次回の同期で上書きされます。
+
+---
+
 ## クイックスタート
 
 ### 1. GitHub で Issue を作成

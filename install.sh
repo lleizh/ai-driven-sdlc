@@ -294,6 +294,7 @@ initialize_labels() {
     "design-review:1d76db:Design Review PR"
     "implementation:5319e7:Implementation PR"
     "decision-revision:fbca04:Decision 修正 PR"
+    "sdlc:track:1d76db:SDLC 管理対象（Projects に自動追加）"
   )
 
   # Check each label and create if not exists
@@ -440,6 +441,7 @@ setup_github_project() {
         updateProjectV2Field(input: {
           fieldId: $fieldId
           singleSelectOptions: [
+            {name: "Backlog", color: GRAY, description: "Backlog (before /sdlc-init)"},
             {name: "Planning", color: GRAY, description: "Planning phase"},
             {name: "Design", color: BLUE, description: "Design phase"},
             {name: "Implementation", color: YELLOW, description: "Implementation phase"},

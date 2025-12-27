@@ -1,0 +1,285 @@
+name: Auto-add Issues to GitHub Projects
+
+on:
+  issues:
+    types: [labeled, unlabeled]
+
+jobs:
+  add-to-project:
+    if: github.event.action == 'labeled' && github.event.label.name == 'sdlc:track'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check .sdlc-config
+        id: check-config
+        run: |
+          if [[ ! -f ".sdlc-config" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ .sdlc-config が見つかりません。スキップします。"
+            echo "セットアップ: ./install.sh を実行してください"
+            exit 0
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Load .sdlc-config
+        if: steps.check-config.outputs.skip == 'false'
+        run: |
+          source .sdlc-config
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+          echo "FIELD_ID_STATUS=$FIELD_ID_STATUS" >> $GITHUB_ENV
+
+      - name: Add Issue to Project
+        if: steps.check-config.outputs.skip == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "=========================================="
+          echo "Label 'sdlc:track' added to Issue #${{ github.event.issue.number }}"
+          echo "=========================================="
+
+          ISSUE_NODE_ID="${{ github.event.issue.node_id }}"
+          echo "Issue node ID: $ISSUE_NODE_ID"
+
+          # Check if Issue already exists in Project
+          ITEM_ID=$(gh api graphql -f query='
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue {
+                          id
+                          number
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f projectId="$PROJECT_ID" \
+            --jq ".data.node.items.nodes[] | select(.content.number == ${{ github.event.issue.number }}) | .id" 2>/dev/null || true)
+
+          if [[ -n "$ITEM_ID" ]]; then
+            echo "✓ Issue #${{ github.event.issue.number }} は既に Projects に存在します（Item ID: $ITEM_ID）"
+            echo "スキップします"
+            exit 0
+          fi
+
+          # Add Issue to Project
+          echo "Projects に Issue を追加中..."
+
+          ITEM_ID=$(gh api graphql -f query='
+            mutation($projectId: ID!, $contentId: ID!) {
+              addProjectV2ItemById(input: {
+                projectId: $projectId
+                contentId: $contentId
+              }) {
+                item {
+                  id
+                }
+              }
+            }
+          ' -f projectId="$PROJECT_ID" \
+            -f contentId="$ISSUE_NODE_ID" \
+            --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null)
+
+          if [[ -z "$ITEM_ID" ]] || [[ "$ITEM_ID" == "null" ]]; then
+            echo "❌ Item の追加に失敗しました"
+            exit 1
+          fi
+
+          echo "✓ Issue #${{ github.event.issue.number }} を Projects に追加しました（Item ID: $ITEM_ID）"
+
+          # Set Status to "Backlog"
+          echo "Status を Backlog に設定中..."
+
+          # Get field options
+          FIELD_OPTIONS=$(gh api graphql -f query='
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  fields(first: 20) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f projectId="$PROJECT_ID")
+
+          BACKLOG_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r '.data.node.fields.nodes[] | select(.name == "Status") | .options[] | select(.name == "Backlog") | .id')
+
+          if [[ -n "$BACKLOG_OPTION_ID" ]]; then
+            if gh api graphql -f query='
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId
+                  itemId: $itemId
+                  fieldId: $fieldId
+                  value: { singleSelectOptionId: $optionId }
+                }) {
+                  projectV2Item { id }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              -f itemId="$ITEM_ID" \
+              -f fieldId="$FIELD_ID_STATUS" \
+              -f optionId="$BACKLOG_OPTION_ID" > /dev/null 2>&1; then
+              echo "✓ Status を Backlog に設定しました"
+            else
+              echo "⚠️ Status の設定に失敗しました（デフォルトのままです）"
+            fi
+          else
+            echo "⚠️ Backlog オプションが見つかりません（デフォルトのままです）"
+          fi
+
+          echo "=========================================="
+          echo "完了"
+          echo "=========================================="
+
+  remove-from-project:
+    if: github.event.action == 'unlabeled' && github.event.label.name == 'sdlc:track'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check .sdlc-config
+        id: check-config
+        run: |
+          if [[ ! -f ".sdlc-config" ]]; then
+            echo "skip=true" >> $GITHUB_OUTPUT
+            echo "⚠️ .sdlc-config が見つかりません。スキップします。"
+            exit 0
+          fi
+          echo "skip=false" >> $GITHUB_OUTPUT
+
+      - name: Load .sdlc-config
+        if: steps.check-config.outputs.skip == 'false'
+        run: |
+          source .sdlc-config
+          echo "PROJECT_ID=$PROJECT_ID" >> $GITHUB_ENV
+
+      - name: Extract FEATURE_ID
+        if: steps.check-config.outputs.skip == 'false'
+        id: extract
+        run: |
+          echo "=========================================="
+          echo "Label 'sdlc:track' removed from Issue #${{ github.event.issue.number }}"
+          echo "=========================================="
+
+          # Extract FEATURE_ID from Issue title or body
+          ISSUE_TITLE="${{ github.event.issue.title }}"
+          ISSUE_BODY="${{ github.event.issue.body }}"
+
+          FEATURE_ID=$(echo "$ISSUE_TITLE $ISSUE_BODY" | grep -oP 'FEATURE-\d+' | head -1 || echo "")
+
+          if [[ -z "$FEATURE_ID" ]]; then
+            echo "⚠️ Issue から FEATURE_ID を抽出できませんでした"
+            echo "デフォルト動作: Projects から削除します（.metadata なしと仮定）"
+            echo "has_metadata=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "FEATURE_ID: $FEATURE_ID"
+          echo "feature_id=$FEATURE_ID" >> $GITHUB_OUTPUT
+
+          # Check if .metadata exists
+          METADATA_PATH="sdlc/features/$FEATURE_ID/.metadata"
+
+          if [[ -f "$METADATA_PATH" ]]; then
+            echo "✓ .metadata が存在します: $METADATA_PATH"
+            echo "→ Projects に保持します（/sdlc-init 実行済み）"
+            echo "has_metadata=true" >> $GITHUB_OUTPUT
+          else
+            echo "✗ .metadata が存在しません: $METADATA_PATH"
+            echo "→ Projects から削除します（/sdlc-init 未実行）"
+            echo "has_metadata=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Remove from Project
+        if: steps.check-config.outputs.skip == 'false' && steps.extract.outputs.has_metadata == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}
+        run: |
+          echo "Projects から Issue を削除中..."
+
+          # Find Item ID in Project
+          ITEM_ID=$(gh api graphql -f query='
+            query($projectId: ID!) {
+              node(id: $projectId) {
+                ... on ProjectV2 {
+                  items(first: 100) {
+                    nodes {
+                      id
+                      content {
+                        ... on Issue {
+                          id
+                          number
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          ' -f projectId="$PROJECT_ID" \
+            --jq ".data.node.items.nodes[] | select(.content.number == ${{ github.event.issue.number }}) | .id" 2>/dev/null || true)
+
+          if [[ -z "$ITEM_ID" ]]; then
+            echo "✓ Issue #${{ github.event.issue.number }} は Projects に存在しません"
+            echo "スキップします"
+            exit 0
+          fi
+
+          echo "Item ID: $ITEM_ID"
+
+          # Delete Item from Project
+          if gh api graphql -f query='
+            mutation($projectId: ID!, $itemId: ID!) {
+              deleteProjectV2Item(input: {
+                projectId: $projectId
+                itemId: $itemId
+              }) {
+                deletedItemId
+              }
+            }
+          ' -f projectId="$PROJECT_ID" \
+            -f itemId="$ITEM_ID" > /dev/null 2>&1; then
+            echo "✓ Issue #${{ github.event.issue.number }} を Projects から削除しました"
+          else
+            echo "❌ Issue の削除に失敗しました"
+            exit 1
+          fi
+
+          echo "=========================================="
+          echo "完了"
+          echo "=========================================="
+
+      - name: Keep in Project
+        if: steps.check-config.outputs.skip == 'false' && steps.extract.outputs.has_metadata == 'true'
+        run: |
+          echo "✓ Issue #${{ github.event.issue.number }} は Projects に保持されます"
+          echo "理由: .metadata が存在します（${{ steps.extract.outputs.feature_id }}）"
+          echo ""
+          echo "=========================================="
+          echo "完了"
+          echo "=========================================="
