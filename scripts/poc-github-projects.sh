@@ -112,27 +112,21 @@ print_header "Test 2: カスタムフィールド作成"
 
 # Field 1: Status (Single Select)
 print_info "Status フィールドを作成中..."
+# Get default Status field (FEATURE-20: use default Status field instead of custom SDLC Status)
 STATUS_FIELD_RESULT=$(gh api graphql -f query='
-  mutation($projectId: ID!) {
-    createProjectV2Field(input: {
-      projectId: $projectId
-      dataType: SINGLE_SELECT
-      name: "SDLC Status"
-      singleSelectOptions: [
-        {name: "Planning", color: GRAY, description: "Planning phase"},
-        {name: "Designing", color: BLUE, description: "Design phase"},
-        {name: "Implementing", color: YELLOW, description: "Implementation phase"},
-        {name: "Reviewing", color: ORANGE, description: "Review phase"},
-        {name: "Completed", color: GREEN, description: "Completed"}
-      ]
-    }) {
-      projectV2Field {
-        ... on ProjectV2SingleSelectField {
-          id
-          name
-          options {
-            id
-            name
+  query($projectId: ID!) {
+    node(id: $projectId) {
+      ... on ProjectV2 {
+        fields(first: 20) {
+          nodes {
+            ... on ProjectV2SingleSelectField {
+              id
+              name
+              options {
+                id
+                name
+              }
+            }
           }
         }
       }
@@ -141,11 +135,11 @@ STATUS_FIELD_RESULT=$(gh api graphql -f query='
 ' -f projectId="$PROJECT_ID" 2>&1)
 
 if echo "$STATUS_FIELD_RESULT" | grep -q "errors"; then
-    print_error "Status フィールド作成に失敗"
+    print_error "Status フィールド取得に失敗"
     echo "$STATUS_FIELD_RESULT"
 else
-    STATUS_FIELD_ID=$(echo "$STATUS_FIELD_RESULT" | jq -r '.data.createProjectV2Field.projectV2Field.id')
-    print_success "Status フィールド作成成功: $STATUS_FIELD_ID"
+    STATUS_FIELD_ID=$(echo "$STATUS_FIELD_RESULT" | jq -r '.data.node.fields.nodes[] | select(.name == "Status") | .id')
+    print_success "デフォルト Status フィールド取得成功: $STATUS_FIELD_ID"
 fi
 
 # Field 2: Risk Level (Single Select)

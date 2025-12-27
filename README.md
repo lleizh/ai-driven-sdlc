@@ -1,5 +1,7 @@
 # AI-Driven SDLC
 
+[Homepage](https://lleizh.github.io/ai-driven-sdlc/)
+
 AI を実行エンジンとして使い、人間が意思決定とリスク管理を行う開発プロセス。
 
 ## コンセプト
@@ -17,7 +19,14 @@ AI を実行エンジンとして使い、人間が意思決定とリスク管�
 
 - [GitHub CLI](https://cli.github.com/) (`gh`) - **必須**
   - SDLC コマンド（`/sdlc-pr-design`, `/sdlc-pr-code` など）で使用
-  - `install.sh` 実行時に GitHub Label を自動作成
+  - `install.sh` 実行時に以下を自動セットアップ:
+    - GitHub Label 作成（feature, bug, risk:high, design-review, implementation, decision-revision）
+    - GitHub Projects v2 作成（プロジェクト名: `SDLC - {repo名}`）
+      - Status フィールド: Planning, Design, Implementation, Testing, Review, Done, Blocked
+      - Feature ID フィールド（テキスト）
+      - Risk Level フィールド: Low, Medium, High
+      - Decision Status フィールド: Pending, Confirmed, Revised
+    - `.sdlc-config` 生成（Project ID とフィールド ID を保存）
 - [Claude Code](https://claude.ai/code) または Claude API アクセス
 
 ```bash
@@ -29,6 +38,52 @@ gh auth login
 ```
 
 **注意**: `gh` コマンドがインストールされていない場合、`install.sh` は GitHub Label の自動作成をスキップします。その場合は手動で Label を作成するか、`gh` をインストール後に `install.sh` を再実行してください。
+
+---
+
+## ブランチ戦略
+
+このプロジェクトは **Git Flow ベース** のブランチ戦略を採用しています。
+
+### ブランチ構成
+
+| ブランチ | 用途 | 保護 |
+|---------|------|------|
+| `master` | 本番リリース用（安定版） | ✓ |
+| `develop` | 主開発ブランチ（デフォルト） | ✓ |
+| `feature/FEATURE-XXX` | 機能開発（全リスクレベル） | - |
+
+### GitHub Actions による自動同期
+
+`.metadata` ファイルの変更時、以下のブランチで GitHub Projects が自動更新されます：
+
+- `master` - 本番リリース時
+- `develop` - 開発ブランチへのマージ時
+- `feature/**` - 機能の実装中
+
+これにより、merge を待たずに開発進捗を GitHub Projects で追跡できます。
+
+---
+
+## GitHub Projects の使い方
+
+### Issue を Projects に追加する
+
+Issue に `sdlc:track` ラベルを追加すると、自動的に GitHub Projects に追加されます。
+
+### ラベル削除時の動作
+
+Issue から `sdlc:track` ラベルを削除すると：
+- **`.metadata` なし**（`/sdlc-init` 未実行）→ Projects から削除
+- **`.metadata` あり**（`/sdlc-init` 実行済み）→ Projects に保持
+
+### データの一貫性
+
+Projects は **只読ダッシュボード** として使用してください。データの更新は：
+- `.metadata` ファイルを編集 → commit → 自動同期
+- `/sdlc-init`, `/sdlc-decision` などのコマンドを使用
+
+**注意**: Projects で直接編集しても、次回の同期で上書きされます。
 
 ---
 
@@ -124,6 +179,8 @@ Claude Code で対話しながら実装：
 
 ## コマンド一覧
 
+完全なコマンドリストと STATUS 管理については [STATUS_MANAGEMENT.md](./STATUS_MANAGEMENT.md) を参照してください。
+
 | コマンド | 説明 | 使用タイミング |
 |---------|------|--------------|
 | `/sdlc-issue` | 対話から Issue 作成 | 対話中に Issue 化したい時 |
@@ -132,9 +189,11 @@ Claude Code で対話しながら実装：
 | `/sdlc-decision <feature-id>` | Decision 確定 | Team Review 後 |
 | `/sdlc-impl-plan <feature-id>` | 実装計画生成 | Decision 確定後 |
 | `/sdlc-coding <feature-id>` | 実装実行 | Decision 確定後 |
-| `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
-| `/sdlc-check <feature-id>` | 一致性チェック | 実装完了後 |
+| `/sdlc-test <feature-id>` | テスト実行 | 実装完了後 |
+| `/sdlc-check <feature-id>` | 一致性チェック | テスト完了後 |
 | `/sdlc-pr-code <feature-id>` | Implementation PR | チェック通過後 |
+| `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
+| `/sdlc-resume <feature-id>` | blocked 状態から再開 | Revision 完了後 |
 
 ---
 
@@ -157,6 +216,13 @@ Claude Code で対話しながら実装：
 
 # 検証
 ./sdlc-cli validate FEATURE-123
+
+# GitHub Projects 同期
+./sdlc-cli sync
+
+# 完了した Feature をアーカイブ（90日後）
+./sdlc-cli archive
+./sdlc-cli archive --days 30 --dry-run
 
 # レポート
 ./sdlc-cli report
@@ -191,13 +257,18 @@ Claude Code で対話しながら実装：
     │   ├── 60_release_plan.md
     │   ├── decisions.md
     │   └── risks.md
-    └── features/                   # Feature 文書（生成される）
-        └── FEATURE-123/
-            ├── .metadata
-            ├── 00_context.md
-            ├── decisions.md
-            ├── risks.md
-            └── ...
+    ├── features/                   # Feature 文書（生成される）
+    │   └── FEATURE-123/
+    │       ├── .metadata
+    │       ├── 00_context.md
+    │       ├── decisions.md
+    │       ├── risks.md
+    │       └── ...
+    └── archive/                    # アーカイブされた Feature
+        └── 2025/                   # 年ごとに整理
+            └── FEATURE-100/
+                ├── .metadata
+                └── ...
 ```
 
 ---

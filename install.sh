@@ -294,6 +294,7 @@ initialize_labels() {
     "design-review:1d76db:Design Review PR"
     "implementation:5319e7:Implementation PR"
     "decision-revision:fbca04:Decision 修正 PR"
+    "sdlc:track:1d76db:SDLC 管理対象（Projects に自動追加）"
   )
 
   # Check each label and create if not exists
@@ -407,37 +408,65 @@ setup_github_project() {
 
   print_success "Project 作成成功: $PROJECT_URL"
 
-  # Create custom fields (4 fields as per Decision 3)
+  # Update default Status field (3 fields total)
+  # Note: Modify default "Status" field options with SDLC values (FEATURE-20)
   print_info "カスタムフィールドを作成中..."
 
-  # Field 1: SDLC Status (Single Select)
+  # Field 1: Get and update default Status field
+  print_info "デフォルト Status フィールドを取得中..."
   STATUS_FIELD_ID=$(gh api graphql -f query='
-    mutation($projectId: ID!) {
-      createProjectV2Field(input: {
-        projectId: $projectId
-        dataType: SINGLE_SELECT
-        name: "SDLC Status"
-        singleSelectOptions: [
-          {name: "Planning", color: GRAY, description: "Planning phase"},
-          {name: "Designing", color: BLUE, description: "Design phase"},
-          {name: "Implementing", color: YELLOW, description: "Implementation phase"},
-          {name: "Reviewing", color: ORANGE, description: "Review phase"},
-          {name: "Completed", color: GREEN, description: "Completed"}
-        ]
-      }) {
-        projectV2Field {
-          ... on ProjectV2SingleSelectField {
-            id
+    query($projectId: ID!) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 20) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+              }
+            }
           }
         }
       }
     }
-  ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
+  ' -f projectId="$PROJECT_ID" --jq '.data.node.fields.nodes[] | select(.name == "Status") | .id' 2>/dev/null || echo "")
 
   if [[ -n "$STATUS_FIELD_ID" ]]; then
-    print_success "SDLC Status フィールド作成成功"
+    print_success "デフォルト Status フィールド取得成功: $STATUS_FIELD_ID"
+
+    # Update Status field options to SDLC values
+    print_info "Status フィールドのオプションを SDLC 値に更新中..."
+    UPDATED_STATUS=$(gh api graphql -f query='
+      mutation($fieldId: ID!) {
+        updateProjectV2Field(input: {
+          fieldId: $fieldId
+          singleSelectOptions: [
+            {name: "Backlog", color: GRAY, description: "Backlog (before /sdlc-init)"},
+            {name: "Planning", color: GRAY, description: "Planning phase"},
+            {name: "Design", color: BLUE, description: "Design phase"},
+            {name: "Implementation", color: YELLOW, description: "Implementation phase"},
+            {name: "Testing", color: ORANGE, description: "Testing phase"},
+            {name: "Review", color: PURPLE, description: "Review phase"},
+            {name: "Done", color: GREEN, description: "Completed"},
+            {name: "Blocked", color: RED, description: "Blocked"}
+          ]
+        }) {
+          projectV2Field {
+            ... on ProjectV2SingleSelectField {
+              id
+            }
+          }
+        }
+      }
+    ' -f fieldId="$STATUS_FIELD_ID" --jq '.data.updateProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
+
+    if [[ -n "$UPDATED_STATUS" ]]; then
+      print_success "Status フィールドのオプションを SDLC 値に更新しました"
+    else
+      print_warning "Status フィールドのオプション更新に失敗しました"
+    fi
   else
-    print_warning "SDLC Status フィールド作成に失敗"
+    print_warning "Status フィールドが見つかりません"
   fi
 
   # Field 2: Feature ID (Text)

@@ -75,3 +75,5 @@ Issue → decisions.md → risks.md → 20_design.md →（必要なら）他
 1. Issue がなければコードを書かない
 2. CONFIRMED な decisions.md がなければ実装しない
 3. 記録されていないリスクは未評価とみなす
+
+---

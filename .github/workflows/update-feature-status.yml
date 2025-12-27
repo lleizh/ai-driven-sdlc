@@ -1,0 +1,154 @@
+name: Update Feature Status on Merge
+
+on:
+  push:
+    branches:
+      - develop
+
+jobs:
+  update-status:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2 # 前のコミットと比較するため
+
+      - name: Extract Feature ID from merge commit
+        id: extract
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 最新のコミット情報を取得
+          COMMIT_SHA="${{ github.sha }}"
+          COMMITTER=$(git log -1 --pretty=%cn "$COMMIT_SHA")
+
+          echo "Commit SHA: $COMMIT_SHA"
+          echo "Committer: $COMMITTER"
+
+          # Committer が "GitHub" でない場合はスキップ（PR マージではない）
+          if [[ "$COMMITTER" != "GitHub" ]]; then
+            echo "⚠️ Committer が 'GitHub' ではありません。PR マージではないためスキップします。"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "✓ Committer が 'GitHub' です。PR マージの可能性があります。"
+
+          # GitHub API を使用して commit に関連する PR を取得
+          echo "GitHub API で PR 情報を取得中..."
+          PR_DATA=$(gh api "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
+            --jq '.[0] | {number: .number, head_ref: .head.ref}' 2>&1)
+
+          if [[ $? -ne 0 ]]; then
+            echo "⚠️ GitHub API 呼び出しに失敗しました: $PR_DATA"
+            echo "⚠️ PR 情報を取得できませんでした。スキップします。"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # PR が存在しない場合
+          if [[ -z "$PR_DATA" || "$PR_DATA" == "null" ]]; then
+            echo "⚠️ この commit に関連する PR が見つかりませんでした。スキップします。"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # PR 情報を抽出
+          PR_NUMBER=$(echo "$PR_DATA" | jq -r '.number')
+          PR_HEAD_REF=$(echo "$PR_DATA" | jq -r '.head_ref')
+
+          echo "✓ PR #$PR_NUMBER を検出"
+          echo "✓ Head ブランチ: $PR_HEAD_REF"
+
+          # Strict pattern で feature ブランチをチェック: ^feature/FEATURE-[0-9]+$
+          if [[ $PR_HEAD_REF =~ ^feature/(FEATURE-[0-9]+)$ ]]; then
+            FEATURE_ID="${BASH_REMATCH[1]}"
+            echo "✓ Feature ID を抽出: $FEATURE_ID"
+            echo "is_merge=true" >> $GITHUB_OUTPUT
+            echo "feature_id=$FEATURE_ID" >> $GITHUB_OUTPUT
+            echo "pr_number=$PR_NUMBER" >> $GITHUB_OUTPUT
+          else
+            echo "⚠️ feature ブランチではありません: $PR_HEAD_REF"
+            echo "⚠️ 期待される形式: feature/FEATURE-[0-9]+ (例: feature/FEATURE-19)"
+            echo "is_merge=false" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+      - name: Update metadata STATUS
+        if: steps.extract.outputs.is_merge == 'true'
+        run: |
+          FEATURE_ID="${{ steps.extract.outputs.feature_id }}"
+          METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
+
+          echo "=========================================="
+          echo "Feature STATUS を更新中: $FEATURE_ID"
+          echo "=========================================="
+
+          # .metadata ファイルの存在確認
+          if [[ ! -f "$METADATA_FILE" ]]; then
+            echo "❌ エラー: .metadata ファイルが見つかりません"
+            echo "❌ パス: $METADATA_FILE"
+            echo ""
+            echo "📋 手動リカバリー手順:"
+            echo "1. $METADATA_FILE が存在するか確認"
+            echo "2. 存在しない場合は /sdlc-init で Feature を初期化"
+            echo "3. 存在する場合は手動で STATUS を completed に更新"
+            exit 1
+          fi
+
+          echo "✓ .metadata ファイルを確認"
+
+          # 現在の STATUS を確認
+          CURRENT_STATUS=$(grep "^STATUS=" "$METADATA_FILE" | cut -d= -f2)
+          echo "現在の STATUS: $CURRENT_STATUS"
+
+          # STATUS が review でない場合は警告
+          if [[ "$CURRENT_STATUS" != "review" ]]; then
+            echo "⚠️ 警告: STATUS が review ではありません (現在: $CURRENT_STATUS)"
+            echo "⚠️ completed への更新をスキップします"
+            echo ""
+            echo "📋 予想される原因:"
+            echo "- Feature がまだレビュー段階に達していない (STATUS=planning, design, implementing, testing)"
+            echo "- すでに completed に更新済み"
+            echo "- 手動で STATUS が変更された"
+            exit 0
+          fi
+
+          # STATUS を review → completed に更新
+          # awk を使用してポータブルに実装
+          awk '{if ($0 ~ /^STATUS=review$/) print "STATUS=completed"; else print}' "$METADATA_FILE" > "$METADATA_FILE.tmp"
+          mv "$METADATA_FILE.tmp" "$METADATA_FILE"
+
+          # 更新を確認
+          NEW_STATUS=$(grep "^STATUS=" "$METADATA_FILE" | cut -d= -f2)
+
+          if [[ "$NEW_STATUS" != "completed" ]]; then
+            echo "❌ エラー: STATUS の更新に失敗しました"
+            echo "❌ 更新後の STATUS: $NEW_STATUS"
+            exit 1
+          fi
+
+          echo "✓ STATUS を更新: $CURRENT_STATUS → $NEW_STATUS"
+
+          # Git で変更をコミット
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "$METADATA_FILE"
+          git commit -m "chore: Mark $FEATURE_ID as completed [skip ci]"
+
+          # develop にプッシュ
+          echo "変更を develop にプッシュ中..."
+          git push origin develop
+
+          echo ""
+          echo "=========================================="
+          echo "✅ $FEATURE_ID の STATUS を completed に更新しました"
+          echo "=========================================="
+          echo ""
+          echo "次のステップ:"
+          echo "- sync-projects.yml が自動的にトリガーされます"
+          echo "- GitHub Projects の Status が 'Done' に更新されます"

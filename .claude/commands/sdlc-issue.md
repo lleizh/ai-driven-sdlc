@@ -62,8 +62,11 @@ FEATURE-TBD
 issue_url=$(gh issue create \
   --title "[FEATURE] {タイトル}" \
   --body "{生成した内容}" \
-  --label "feature")
+  --label "feature" \
+  --label "sdlc:track")
 ```
+
+注：`sdlc:track` ラベルを追加することで、Issue が自動的に GitHub Projects の Backlog に追加されます。
 
 Issue 番号を取得：
 ```bash
@@ -87,6 +90,10 @@ gh issue view "$issue_number" --json body -q .body | \
 
 Issue: https://github.com/owner/repo/issues/{issue_number}
 Feature ID: FEATURE-{issue_number}
+Labels: feature, sdlc:track
+
+📊 GitHub Projects:
+Issue は自動的に Projects の Backlog に追加されます
 
 次のステップ:
 /sdlc-init https://github.com/owner/repo/issues/{issue_number}

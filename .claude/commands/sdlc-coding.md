@@ -19,29 +19,15 @@ Decision 確定後、AI が実装を実行します。
 - Decision Status が CONFIRMED か確認
 - CONFIRMED でない場合、エラー終了
 
-### 2. ブランチ切替
+### 2. ブランチ確認
 
-Risk Level に応じて分岐：
-
-**低リスク**（すでに `feature/{FEATURE_ID}` にいる場合）：
-- そのまま続行（文書とコードを同じブランチで管理）
-
-**中/高リスク**（`design/{FEATURE_ID}` から切り替える場合）：
 ```bash
-# design ブランチの変更を commit（未 commit の場合）
-git add .
-git commit -m "docs: complete design review"
+# feature ブランチに切り替え
+git checkout feature/{FEATURE_ID}
 
-# develop に切り替えて最新を取得
-git checkout develop
-git pull origin develop
-
-# develop から feature ブランチを作成
-git checkout -b feature/{FEATURE_ID}
+# develop から最新のドキュメントを取得
+git pull origin develop --rebase
 ```
-
-注：中/高リスクでは、design ドキュメントはすでに develop に merge されている。
-feature ブランチは最新の develop（ドキュメント含む）から作成する。
 
 ### 3. ドキュメント読取
 
@@ -66,12 +52,32 @@ decisions.md の Chosen Options に基づいて実装：
 ### 5. メタデータ更新
 
 `.metadata` を更新：
-```
-STATUS=implementing
-BRANCH=feature/{FEATURE_ID}
+```bash
+# STATUS を implementing に変更
+sed -i '' 's/^STATUS=.*/STATUS=implementing/' sdlc/features/${FEATURE_ID}/.metadata
+
+# LAST_UPDATED を更新
+current_date=$(date +%Y-%m-%d)
+if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
+  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
+fi
 ```
 
-### 6. 完了メッセージ
+### 6. Commit と Push
+
+```bash
+# .metadata の変更を commit
+git add sdlc/features/${FEATURE_ID}/.metadata
+git commit -m "chore(${FEATURE_ID}): update STATUS to implementing
+
+Related: #<issue-number>"
+
+git push origin feature/${FEATURE_ID}
+```
+
+### 7. 完了メッセージ
 
 ```
 ✅ 実装が完了しました
@@ -86,8 +92,14 @@ BRANCH=feature/{FEATURE_ID}
 ビルド結果: PASS/FAIL
 
 次のステップ: 
-1. コード変更を確認
-2. /sdlc-pr-code でPR作成
+{Medium/High リスクの場合}
+1. /sdlc-test {FEATURE_ID} でテストを実行
+2. /sdlc-check {FEATURE_ID} で最終確認
+3. /sdlc-pr-code {FEATURE_ID} でPR作成
+
+{Low リスクの場合}
+1. /sdlc-check {FEATURE_ID} で最終確認
+2. /sdlc-pr-code {FEATURE_ID} でPR作成
 ```
 
 ---

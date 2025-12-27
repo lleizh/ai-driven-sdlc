@@ -34,7 +34,7 @@ load_metadata() {
 
     # Reset variables to avoid pollution
     unset FEATURE_ID RISK_LEVEL STATUS CREATED_DATE DECISION_STATUS ISSUE_URL BRANCH
-    unset REVISION_COUNT LAST_UPDATED
+    unset REVISION_COUNT LAST_UPDATED LAST_SYNC
 
     # Parse .metadata line by line safely (no code execution)
     while IFS='=' read -r key value; do
@@ -63,6 +63,7 @@ load_metadata() {
             BRANCH) BRANCH="$value" ;;
             REVISION_COUNT) REVISION_COUNT="$value" ;;
             LAST_UPDATED) LAST_UPDATED="$value" ;;
+            LAST_SYNC) LAST_SYNC="$value" ;;
             REVISION_*)
                 # Handle REVISION_N_DATE, REVISION_N_MAKER, etc.
                 eval "$key=\"\$value\""
@@ -184,6 +185,18 @@ SDLC CLI v${VERSION} - 管理ツール
 
 検証（CI/CD用）:
   validate <feature-id>             治理チェックリスト（文書・プロセス検証）
+
+GitHub Projects 同期:
+  sync                              全Featureを GitHub Projects に同期
+                                    - Feature ID でマッチング
+                                    - 存在しない場合は追加
+                                    - Issue URL がない feature はスキップ
+
+アーカイブ:
+  archive [--days N] [--dry-run]    完了した Feature をアーカイブ
+                                    --days: 完了後の経過日数（デフォルト: 90日）
+                                    --dry-run: 実際の移動をせずに確認のみ
+                                    --force: 既存のアーカイブを上書き
 
 レポート:
   report                            統計レポートを生成
@@ -1073,6 +1086,670 @@ generate_report() {
     print_info "詳細: 'sdlc-cli list' または 'sdlc-cli status <feature-id>'"
 }
 
+# ========================================
+# Archive completed features
+# ========================================
+archive_features() {
+    local days=90  # Default: 90 days
+    local dry_run=false
+    local force=false
+
+    # Parse options
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --days)
+                days="$2"
+                if [[ ! "$days" =~ ^[0-9]+$ ]]; then
+                    print_error "Invalid --days value: $days (must be a positive integer)"
+                    return 1
+                fi
+                shift 2
+                ;;
+            --dry-run)
+                dry_run=true
+                shift
+                ;;
+            --force)
+                force=true
+                shift
+                ;;
+            *)
+                print_error "Unknown option: $1"
+                echo "Usage: sdlc-cli archive [--days N] [--dry-run] [--force]"
+                return 1
+                ;;
+        esac
+    done
+
+    print_header "Feature アーカイブ"
+
+    if [[ "$dry_run" == true ]]; then
+        print_info "🔍 Dry-run モード: 実際の移動は行いません"
+        echo ""
+    fi
+
+    # Archive directory
+    local archive_dir="${SDLC_DIR}/archive"
+    local current_year=$(date +%Y)
+    local current_date=$(date +%Y-%m-%d)
+    local cutoff_date=$(date -v-${days}d +%Y-%m-%d 2>/dev/null || date -d "${days} days ago" +%Y-%m-%d 2>/dev/null)
+
+    if [[ -z "$cutoff_date" ]]; then
+        print_error "日付計算に失敗しました"
+        return 1
+    fi
+
+    print_info "アーカイブ条件:"
+    echo "  - STATUS: completed"
+    echo "  - 完了後の経過日数: ${days}日以上"
+    echo "  - カットオフ日: ${cutoff_date}"
+    echo ""
+
+    # Find completed features
+    local feature_count=0
+    local archived_count=0
+    local skipped_count=0
+
+    if [[ ! -d "$FEATURES_DIR" ]]; then
+        print_error "Features ディレクトリが見つかりません: $FEATURES_DIR"
+        return 1
+    fi
+
+    for feature_dir in "$FEATURES_DIR"/FEATURE-*; do
+        [[ ! -d "$feature_dir" ]] && continue
+
+        local feature_id=$(basename "$feature_dir")
+        ((feature_count++))
+
+        # Load metadata
+        if ! load_metadata "$feature_dir"; then
+            print_warning "Skipping ${feature_id}: .metadata の読み込みに失敗"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Check STATUS
+        if [[ "$STATUS" != "completed" ]]; then
+            continue
+        fi
+
+        # Get completion date (use LAST_UPDATED or CREATED_DATE)
+        local completion_date="${LAST_UPDATED:-$CREATED_DATE}"
+        if [[ -z "$completion_date" ]]; then
+            print_warning "Skipping ${feature_id}: 完了日が不明"
+            ((skipped_count++))
+            continue
+        fi
+
+        # Compare dates (YYYY-MM-DD format)
+        if [[ "$completion_date" > "$cutoff_date" ]]; then
+            continue
+        fi
+
+        # Determine archive year (use completion year)
+        local archive_year="${completion_date:0:4}"
+        local target_dir="${archive_dir}/${archive_year}/${feature_id}"
+
+        echo "📦 ${feature_id}"
+        echo "   完了日: ${completion_date}"
+        echo "   移動先: sdlc/archive/${archive_year}/${feature_id}"
+
+        if [[ "$dry_run" == true ]]; then
+            print_info "   [Dry-run] 移動をスキップ"
+            ((archived_count++))
+            echo ""
+            continue
+        fi
+
+        # Check if target already exists
+        if [[ -d "$target_dir" ]]; then
+            if [[ "$force" == false ]]; then
+                print_warning "   移動先が既に存在します。--force で上書き可能"
+                ((skipped_count++))
+                echo ""
+                continue
+            else
+                print_warning "   既存のアーカイブを削除します"
+                rm -rf "$target_dir"
+            fi
+        fi
+
+        # Create archive directory
+        mkdir -p "${archive_dir}/${archive_year}"
+
+        # Move with git mv (preserves history)
+        if git mv "$feature_dir" "$target_dir" 2>/dev/null; then
+            print_success "   移動完了"
+            ((archived_count++))
+
+            # Remove from GitHub Projects
+            if [[ -n "$ISSUE_URL" ]]; then
+                echo "   🗑️  GitHub Projects から削除中..."
+                if remove_from_projects "$feature_id" "$ISSUE_URL"; then
+                    print_success "   Projects から削除しました"
+                else
+                    print_warning "   Projects からの削除に失敗 (手動で削除してください)"
+                fi
+            fi
+        else
+            print_error "   git mv に失敗しました"
+            ((skipped_count++))
+        fi
+
+        echo ""
+    done
+
+    # Summary
+    echo "========================================"
+    if [[ "$dry_run" == true ]]; then
+        print_info "Dry-run 完了"
+    else
+        print_success "アーカイブ完了"
+    fi
+    echo "========================================"
+    echo "  スキャンした Feature 数: ${feature_count}"
+    echo "  アーカイブ対象:          ${archived_count}"
+    echo "  スキップ:                ${skipped_count}"
+    echo ""
+
+    if [[ "$dry_run" == true ]]; then
+        print_info "実際にアーカイブするには --dry-run を外して実行してください"
+    elif [[ $archived_count -gt 0 ]]; then
+        print_info "変更を commit してください:"
+        echo "  git add ."
+        echo "  git commit -m \"chore: archive ${archived_count} completed features\""
+        echo "  git push origin develop"
+    fi
+}
+
+# Remove feature from GitHub Projects
+remove_from_projects() {
+    local feature_id="$1"
+    local issue_url="$2"
+
+    # Check if .sdlc-config exists
+    if [[ ! -f "${SCRIPT_DIR}/.sdlc-config" ]]; then
+        return 1
+    fi
+
+    # Load config
+    source "${SCRIPT_DIR}/.sdlc-config"
+
+    if [[ -z "$GITHUB_PROJECT_ID" ]]; then
+        return 1
+    fi
+
+    # Extract issue number from URL
+    local issue_number
+    issue_number=$(echo "$issue_url" | grep -oE '[0-9]+$')
+    if [[ -z "$issue_number" ]]; then
+        return 1
+    fi
+
+    # Get Issue node ID
+    local issue_node_id
+    issue_node_id=$(gh api graphql -f query='
+      query($owner: String!, $repo: String!, $number: Int!) {
+        repository(owner: $owner, name: $repo) {
+          issue(number: $number) {
+            id
+          }
+        }
+      }
+    ' -f owner="$GITHUB_OWNER" \
+      -f repo="$GITHUB_REPO" \
+      -F number="$issue_number" \
+      --jq '.data.repository.issue.id' 2>/dev/null)
+
+    if [[ -z "$issue_node_id" ]] || [[ "$issue_node_id" == "null" ]]; then
+        return 1
+    fi
+
+    # Find project item by Feature ID
+    local item_id
+    item_id=$(gh api graphql -f query='
+      query($projectId: ID!) {
+        node(id: $projectId) {
+          ... on ProjectV2 {
+            items(first: 100) {
+              nodes {
+                id
+                fieldValues(first: 20) {
+                  nodes {
+                    ... on ProjectV2ItemFieldTextValue {
+                      text
+                      field {
+                        ... on ProjectV2Field {
+                          name
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    ' -f projectId="$GITHUB_PROJECT_ID" \
+      --jq ".data.node.items.nodes[] | select(.fieldValues.nodes[] | select(.field.name == \"Feature ID\" and .text == \"$feature_id\")) | .id" 2>/dev/null)
+
+    if [[ -z "$item_id" ]] || [[ "$item_id" == "null" ]]; then
+        # Try to find by content ID
+        item_id=$(gh api graphql -f query='
+          query($projectId: ID!) {
+            node(id: $projectId) {
+              ... on ProjectV2 {
+                items(first: 100) {
+                  nodes {
+                    id
+                    content {
+                      ... on Issue {
+                        id
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f projectId="$GITHUB_PROJECT_ID" \
+          --jq ".data.node.items.nodes[] | select(.content.id == \"$issue_node_id\") | .id" 2>/dev/null)
+    fi
+
+    if [[ -z "$item_id" ]] || [[ "$item_id" == "null" ]]; then
+        return 1
+    fi
+
+    # Delete project item
+    gh api graphql -f query='
+      mutation($projectId: ID!, $itemId: ID!) {
+        deleteProjectV2Item(input: {
+          projectId: $projectId
+          itemId: $itemId
+        }) {
+          deletedItemId
+        }
+      }
+    ' -f projectId="$GITHUB_PROJECT_ID" \
+      -f itemId="$item_id" > /dev/null 2>&1
+
+    return $?
+}
+
+# ========================================
+# Sync to GitHub Projects
+# ========================================
+sync_to_projects() {
+    print_info "GitHub Projects への同期を開始します"
+    echo ""
+
+    # Check .sdlc-config
+    if [[ ! -f "${SCRIPT_DIR}/.sdlc-config" ]]; then
+        print_error ".sdlc-config が見つかりません"
+        print_info "セットアップ: ./install.sh を実行してください"
+        exit 1
+    fi
+
+    # Load config
+    source "${SCRIPT_DIR}/.sdlc-config"
+
+    if [[ -z "$PROJECT_ID" ]]; then
+        print_error "PROJECT_ID が設定されていません"
+        exit 1
+    fi
+
+    # Check gh CLI
+    if ! command -v gh &> /dev/null; then
+        print_error "gh CLI がインストールされていません"
+        print_info "インストール: https://cli.github.com/"
+        exit 1
+    fi
+
+    # Check authentication
+    if ! gh auth status &> /dev/null; then
+        print_error "GitHub 認証が必要です"
+        print_info "実行: gh auth login"
+        exit 1
+    fi
+
+    echo "Project ID: $PROJECT_ID"
+    echo ""
+
+    # Get all features
+    local feature_count=0
+    local synced_count=0
+    local skipped_count=0
+    local error_count=0
+
+    for feature_dir in "${FEATURES_DIR}"/*; do
+        if [[ ! -d "$feature_dir" ]]; then
+            continue
+        fi
+
+        if [[ ! -f "${feature_dir}/.metadata" ]]; then
+            continue
+        fi
+
+        ((feature_count++))
+
+        # Load metadata
+        if ! load_metadata "${feature_dir}"; then
+            print_warning "Failed to load metadata: ${feature_dir}"
+            ((error_count++))
+            continue
+        fi
+
+        echo "────────────────────────────────────────"
+        echo "Feature: ${FEATURE_ID}"
+
+        # Skip if no Issue URL
+        if [[ -z "$ISSUE_URL" ]] || [[ "$ISSUE_URL" == "https://github.com/owner/repo/issues/" ]]; then
+            print_warning "Issue URL が設定されていません - スキップ"
+            ((skipped_count++))
+            echo ""
+            continue
+        fi
+
+        # Extract issue number from URL
+        local issue_number
+        issue_number=$(echo "$ISSUE_URL" | grep -oE '[0-9]+$')
+
+        if [[ -z "$issue_number" ]]; then
+            print_warning "Issue URL から Issue 番号を抽出できません: $ISSUE_URL"
+            ((error_count++))
+            echo ""
+            continue
+        fi
+
+        echo "Issue: #${issue_number}"
+
+        # Get Issue node ID
+        local issue_node_id
+        issue_node_id=$(gh api graphql -f query='
+          query($owner: String!, $repo: String!, $number: Int!) {
+            repository(owner: $owner, name: $repo) {
+              issue(number: $number) {
+                id
+              }
+            }
+          }
+        ' -f owner="$REPO_OWNER" \
+          -f repo="$REPO_NAME" \
+          -F number="$issue_number" \
+          --jq '.data.repository.issue.id' 2>/dev/null)
+
+        if [[ -z "$issue_node_id" ]] || [[ "$issue_node_id" == "null" ]]; then
+            print_error "Issue の node ID を取得できません: Issue #${issue_number}"
+            ((error_count++))
+            echo ""
+            continue
+        fi
+
+        # Check if Item exists in Project by Feature ID
+        local existing_item_id
+        existing_item_id=$(gh api graphql -f query='
+          query($projectId: ID!) {
+            node(id: $projectId) {
+              ... on ProjectV2 {
+                items(first: 100) {
+                  nodes {
+                    id
+                    content {
+                      ... on Issue {
+                        id
+                        number
+                      }
+                    }
+                    fieldValues(first: 20) {
+                      nodes {
+                        ... on ProjectV2ItemFieldTextValue {
+                          text
+                          field {
+                            ... on ProjectV2Field {
+                              name
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f projectId="$PROJECT_ID" \
+          --jq ".data.node.items.nodes[] | select(.fieldValues.nodes[] | select(.field.name == \"Feature ID\" and .text == \"$FEATURE_ID\")) | .id" 2>/dev/null || true)
+
+        # If not found by Feature ID, check by Issue content ID
+        if [[ -z "$existing_item_id" ]]; then
+            existing_item_id=$(gh api graphql -f query='
+              query($projectId: ID!) {
+                node(id: $projectId) {
+                  ... on ProjectV2 {
+                    items(first: 100) {
+                      nodes {
+                        id
+                        content {
+                          ... on Issue {
+                            id
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              --jq ".data.node.items.nodes[] | select(.content.id == \"$issue_node_id\") | .id" 2>/dev/null || true)
+        fi
+
+        local item_id="$existing_item_id"
+
+        # Add Item if not exists
+        if [[ -z "$item_id" ]]; then
+            echo "Project に Item を追加中..."
+
+            item_id=$(gh api graphql -f query='
+              mutation($projectId: ID!, $contentId: ID!) {
+                addProjectV2ItemById(input: {
+                  projectId: $projectId
+                  contentId: $contentId
+                }) {
+                  item {
+                    id
+                  }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              -f contentId="$issue_node_id" \
+              --jq '.data.addProjectV2ItemById.item.id' 2>/dev/null)
+
+            if [[ -z "$item_id" ]] || [[ "$item_id" == "null" ]]; then
+                print_error "Item の追加に失敗しました"
+                ((error_count++))
+                echo ""
+                continue
+            fi
+
+            print_success "Item を追加しました"
+        else
+            echo "✓ Item は既に存在します"
+        fi
+
+        # Get field options
+        local field_options
+        field_options=$(gh api graphql -f query='
+          query($projectId: ID!) {
+            node(id: $projectId) {
+              ... on ProjectV2 {
+                fields(first: 20) {
+                  nodes {
+                    ... on ProjectV2SingleSelectField {
+                      id
+                      name
+                      options { id name }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ' -f projectId="$PROJECT_ID" 2>/dev/null)
+
+        # Update Status field
+        if [[ -n "$STATUS" ]]; then
+            local project_status
+            case "$STATUS" in
+                "planning") project_status="Planning" ;;
+                "design") project_status="Design" ;;
+                "implementing") project_status="Implementation" ;;
+                "testing") project_status="Testing" ;;
+                "review") project_status="Review" ;;
+                "completed") project_status="Done" ;;
+                "blocked") project_status="Blocked" ;;
+                *) project_status="" ;;
+            esac
+
+            if [[ -n "$project_status" ]]; then
+                local status_option_id
+                status_option_id=$(echo "$field_options" | jq -r --arg name "$project_status" '.data.node.fields.nodes[] | select(.name == "Status") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$status_option_id" ]] && [[ "$status_option_id" != "null" ]]; then
+                    if gh api graphql -f query='
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId
+                          itemId: $itemId
+                          fieldId: $fieldId
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    ' -f projectId="$PROJECT_ID" \
+                      -f itemId="$item_id" \
+                      -f fieldId="$FIELD_ID_STATUS" \
+                      -f optionId="$status_option_id" > /dev/null 2>&1; then
+                        echo "  ✓ Status: $project_status"
+                    fi
+                fi
+            fi
+        fi
+
+        # Update Feature ID field
+        if [[ -n "$FEATURE_ID" ]]; then
+            if gh api graphql -f query='
+              mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $text: String!) {
+                updateProjectV2ItemFieldValue(input: {
+                  projectId: $projectId
+                  itemId: $itemId
+                  fieldId: $fieldId
+                  value: { text: $text }
+                }) {
+                  projectV2Item { id }
+                }
+              }
+            ' -f projectId="$PROJECT_ID" \
+              -f itemId="$item_id" \
+              -f fieldId="$FIELD_ID_FEATURE_ID" \
+              -f text="$FEATURE_ID" > /dev/null 2>&1; then
+                echo "  ✓ Feature ID: $FEATURE_ID"
+            fi
+        fi
+
+        # Update Risk Level field
+        if [[ -n "$RISK_LEVEL" ]]; then
+            local project_risk
+            case "$RISK_LEVEL" in
+                "low") project_risk="Low" ;;
+                "medium") project_risk="Medium" ;;
+                "high") project_risk="High" ;;
+                *) project_risk="" ;;
+            esac
+
+            if [[ -n "$project_risk" ]]; then
+                local risk_option_id
+                risk_option_id=$(echo "$field_options" | jq -r --arg name "$project_risk" '.data.node.fields.nodes[] | select(.name == "Risk Level") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$risk_option_id" ]] && [[ "$risk_option_id" != "null" ]]; then
+                    if gh api graphql -f query='
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId
+                          itemId: $itemId
+                          fieldId: $fieldId
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    ' -f projectId="$PROJECT_ID" \
+                      -f itemId="$item_id" \
+                      -f fieldId="$FIELD_ID_RISK_LEVEL" \
+                      -f optionId="$risk_option_id" > /dev/null 2>&1; then
+                        echo "  ✓ Risk Level: $project_risk"
+                    fi
+                fi
+            fi
+        fi
+
+        # Update Decision Status field
+        if [[ -n "$DECISION_STATUS" ]]; then
+            local project_decision
+            case "$DECISION_STATUS" in
+                "pending") project_decision="Pending" ;;
+                "confirmed") project_decision="Confirmed" ;;
+                "rejected") project_decision="Rejected" ;;
+                *) project_decision="" ;;
+            esac
+
+            if [[ -n "$project_decision" ]]; then
+                local decision_option_id
+                decision_option_id=$(echo "$field_options" | jq -r --arg name "$project_decision" '.data.node.fields.nodes[] | select(.name == "Decision Status") | .options[] | select(.name == $name) | .id')
+
+                if [[ -n "$decision_option_id" ]] && [[ "$decision_option_id" != "null" ]]; then
+                    if gh api graphql -f query='
+                      mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+                        updateProjectV2ItemFieldValue(input: {
+                          projectId: $projectId
+                          itemId: $itemId
+                          fieldId: $fieldId
+                          value: { singleSelectOptionId: $optionId }
+                        }) {
+                          projectV2Item { id }
+                        }
+                      }
+                    ' -f projectId="$PROJECT_ID" \
+                      -f itemId="$item_id" \
+                      -f fieldId="$FIELD_ID_DECISION_STATUS" \
+                      -f optionId="$decision_option_id" > /dev/null 2>&1; then
+                        echo "  ✓ Decision Status: $project_decision"
+                    fi
+                fi
+            fi
+        fi
+
+        print_success "${FEATURE_ID} の同期が完了しました"
+        ((synced_count++))
+        echo ""
+    done
+
+    # Summary
+    echo "========================================"
+    print_success "同期が完了しました"
+    echo "========================================"
+    echo "  総 Feature 数:       ${feature_count}"
+    echo "  同期成功:            ${synced_count}"
+    echo "  スキップ:            ${skipped_count}"
+    if [[ $error_count -gt 0 ]]; then
+        echo -e "  ${RED}エラー:              ${error_count}${NC}"
+    else
+        echo "  エラー:              ${error_count}"
+    fi
+    echo ""
+}
+
 # Main
 main() {
     if [[ $# -eq 0 ]]; then
@@ -1101,6 +1778,12 @@ main() {
             ;;
         report)
             generate_report
+            ;;
+        sync)
+            sync_to_projects "$@"
+            ;;
+        archive)
+            archive_features "$@"
             ;;
         version)
             echo "SDLC CLI version ${VERSION}"
