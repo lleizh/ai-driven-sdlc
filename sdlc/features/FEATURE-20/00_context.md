@@ -39,6 +39,10 @@ GitHub Projects の Status フィールドを統一し、カスタムフィー�
 - `.github/workflows/sync-metadata-to-project.yml` の更新
 - カスタムフィールド「SDLC Status」の削除
 - 既存の Issue/PR の Status 移行
+- `sdlc-cli sync` コマンドの追加
+  - `sdlc/features/` 配下の全 feature を GitHub Projects に同期
+  - Feature ID でマッチング、存在しない場合は追加
+  - Issue URL がない feature はスキップ
 
 ### 対象外
 
