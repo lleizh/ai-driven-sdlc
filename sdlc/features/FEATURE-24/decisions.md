@@ -7,9 +7,9 @@
 
 ## Decision 1: Workflow トリガーとラベル名
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -53,17 +53,20 @@ Issue を GitHub Projects に自動追加するために、どのラベルをト
 **Cost/Effort**（コスト・工数）: Low
 
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A - `sdlc:track` ラベルを使用
 
 **Rationale**（理由）:
-<!-- チームで議論して決定 -->
+- SDLC 管理対象であることが明示的で、チームにとって理解しやすい
+- 既存のラベル体系（`sdlc:` プレフィックス）と整合性がある
+- `install.sh` で自動作成可能であり、Non-Negotiables を満たす
+- 選択的に Issue を管理できる（すべての Issue が自動追加されない）
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- 既存 Issue には手動でラベル追加が必要（影響は限定的）
 
 **Non-Negotiables**（譲れない点）:
-- ラベルは `install.sh` で自動作成可能であること
-- 既存のラベル体系と整合性があること
+- ラベルは `install.sh` で自動作成可能であること ✓
+- 既存のラベル体系と整合性があること ✓
 
 ### Impact（影響）
 - **Technical**（技術的）: Workflow のトリガー設定に影響
@@ -80,9 +83,9 @@ Issue を GitHub Projects に自動追加するために、どのラベルをト
 
 ## Decision 2: ラベル削除時の智能的な削除ロジック
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -127,17 +130,23 @@ Issue からラベルを削除したときに、Projects からも削除する�
 **Cost/Effort**（コスト・工数）: Low
 
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A - `.metadata` の有無で判断
 
 **Rationale**（理由）:
-<!-- チームで議論して決定 -->
+- `/sdlc-init` 実行済みの Feature を保護できる（Non-Negotiables を満たす）
+- `sync-projects.yml` との競合を回避（重複防止機構により安全）
+- 論理的で一貫性のある動作（`.metadata` を唯一の真実の源として尊重）
+- 既存の `sync-projects.yml` のパターンを踏襲（実装リスク軽減）
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- Risk R001 (Medium): `.metadata` ファイル確認の実装複雑性
+  - 軽減策: 既存パターンの再利用、十分なエラーハンドリング
+- API 呼び出しの増加（repository checkout が必要）
+  - 軽減策: Retry 機構の実装
 
 **Non-Negotiables**（譲れない点）:
-- `/sdlc-init` 実行済みの Feature は Projects に保持されること
-- `sync-projects.yml` との競合がないこと
+- `/sdlc-init` 実行済みの Feature は Projects に保持されること ✓
+- `sync-projects.yml` との競合がないこと ✓
 
 ### Impact（影響）
 - **Technical**（技術的）: Workflow の複雑性と API 使用量に影響
@@ -154,9 +163,9 @@ Issue からラベルを削除したときに、Projects からも削除する�
 
 ## Decision 3: Backlog 状態の導入
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -213,17 +222,23 @@ Backlog → Planning → Design → Implementation → Testing → Review → Do
 **Cost/Effort**（コスト・工数）: High
 
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A - Backlog 状態を追加
 
 **Rationale**（理由）:
-<!-- チームで議論して決定 -->
+- Issue のライフサイクル全体を可視化できる（PM/管理層の要求を満たす）
+- `/sdlc-init` 実行前と実行後を明確に区別できる
+- 既存の SDLC フローと整合性がある（状態遷移が自然）
+- Medium 工数だが、長期的な可視性向上のメリットが大きい
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- `.metadata` に記録されない特殊な状態（Backlog のみ例外）
+  - 軽減策: ドキュメントで明記、`sync-projects.yml` が自動的に Planning に更新
+- `install.sh` と `sync-projects.yml` の更新が必要（Medium 工数）
+  - 軽減策: 既存のコードパターンを踏襲
 
 **Non-Negotiables**（譲れない点）:
-- Issue のライフサイクルが明確であること
-- 既存の SDLC フローと整合性があること
+- Issue のライフサイクルが明確であること ✓
+- 既存の SDLC フローと整合性があること ✓
 
 ### Impact（影響）
 - **Technical**（技術的）: `install.sh` と `sync-projects.yml` の更新が必要
@@ -241,9 +256,9 @@ Backlog → Planning → Design → Implementation → Testing → Review → Do
 
 ## Decision 4: README.md への只読ベストプラクティスの追加
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -287,17 +302,21 @@ Issue の実装タスクには、GitHub Projects を只読展示層として使�
 **Cost/Effort**（コスト・工数）: None
 
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option B - 最小限のドキュメント追加
 
 **Rationale**（理由）:
-<!-- チームで議論して決定 -->
+- 必要最小限の情報で Non-Negotiables を満たせる
+- ドキュメントをシンプルに保つ（過度な記述を避ける）
+- 正しいワークフロー（`.metadata` 編集 → 自動同期）は既に記載されている
+- Non-Goals に従い、完全な只読化は推奨だが必須ではない
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- 手動編集のリスクが残る（ただし `sync-projects.yml` が自動修正）
+- 詳細なベストプラクティスは記載されない（必要に応じて追加可能）
 
 **Non-Negotiables**（譲れない点）:
-- Projects の正しい使い方が明確であること
-- データの一貫性を保つ方法が文書化されていること
+- Projects の正しい使い方が明確であること ✓
+- データの一貫性を保つ方法が文書化されていること ✓
 
 ### Impact（影響）
 - **Technical**（技術的）: なし
@@ -323,13 +342,13 @@ Issue の実装タスクには、GitHub Projects を只読展示層として使�
 ## Quick Reference（クイックリファレンス）
 
 ### All Confirmed Decisions（全確定済み決定）
-（まだ確定済み決定なし）
+1. **Workflow トリガーとラベル名**: `sdlc:track` ラベルを使用 - lleizh (2025-12-27)
+2. **ラベル削除時の智能的な削除ロジック**: `.metadata` の有無で判断 - lleizh (2025-12-27)
+3. **Backlog 状態の導入**: Backlog 状態を追加 - lleizh (2025-12-27)
+4. **README.md への只読ベストプラクティスの追加**: 最小限のドキュメント追加 - lleizh (2025-12-27)
 
 ### Pending Decisions（保留中の決定）
-1. **Workflow トリガーとラベル名**: 検討中 - TBD
-2. **ラベル削除時の智能的な削除ロジック**: 検討中 - TBD
-3. **Backlog 状態の導入**: 検討中 - TBD
-4. **README.md への只読ベストプラクティスの追加**: 検討中 - TBD
+（すべて確定済み）
 
 ---
 
