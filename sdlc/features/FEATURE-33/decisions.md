@@ -7,9 +7,9 @@
 
 ## Decision 1: Issue クローズ時のコメント内容
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -17,7 +17,7 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 ### Options Considered（検討した選択肢）
 
-#### Option A: シンプルなメッセージ
+#### Option A: シンプルなメッセージ ✅ CHOSEN
 **Pros**（長所）:
 - コメントが短く、読みやすい
 - 実装がシンプル
@@ -29,6 +29,8 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 **Cost/Effort**（コスト・工数）: 低
 
 **Example**: `✅ Feature completed and merged to develop. Automatically closed by workflow.`
+
+**Decision**: ✅ CHOSEN
 
 #### Option B: 詳細情報を含むメッセージ
 **Pros**（長所）:
@@ -44,6 +46,8 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 **Example**: `✅ Feature completed and merged to develop via PR #{PR_NUMBER} (commit: {SHA}). Automatically closed by workflow.`
 
+**Decision**: REJECTED
+
 #### Option C: リンク付きメッセージ
 **Pros**（長所）:
 - PR や commit への直接リンクを含む
@@ -58,18 +62,26 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 **Example**: `✅ Feature completed and merged to develop via [PR #{PR_NUMBER}]({PR_URL}) ([commit {SHA_SHORT}]({COMMIT_URL})). Automatically closed by workflow.`
 
+**Decision**: REJECTED
+
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A (シンプルなメッセージ)
 
 **Rationale**（理由）:
-チームで議論して決定する必要があります。
+- 最もシンプルで実装しやすい
+- コメント内容が短く読みやすい
+- 自動化によるクローズであることが明確
+- Low Risk の Feature であり、シンプルな実装で十分
+- 必要に応じて Issue から関連 PR を確認できる
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- PR 番号が直接表示されないため、Issue から PR を辿る必要がある
+- デバッグ時に若干の手間が増える可能性
 
 **Non-Negotiables**（譲れない点）:
 - 自動化によるクローズであることを明記する
-- コメントは日本語または英語で統一する
+- 英語でのメッセージ（GitHub の標準言語）
+- 視覚的に分かりやすい絵文字（✅）を使用
 
 ### Impact（影響）
 - **Technical**（技術的）: コメント生成ロジックの複雑さ
@@ -85,9 +97,9 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 ## Decision 2: エラーハンドリング戦略
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-27  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: lleizh
 
 ### Context（背景）
 
@@ -95,7 +107,7 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 ### Options Considered（検討した選択肢）
 
-#### Option A: 警告を出してスキップ
+#### Option A: 警告を出してスキップ ✅ CHOSEN
 **Pros**（長所）:
 - workflow が失敗しない
 - 他の処理に影響を与えない
@@ -106,6 +118,8 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 - ログを確認しないと問題が分からない
 
 **Cost/Effort**（コスト・工数）: 低
+
+**Decision**: ✅ CHOSEN
 
 #### Option B: エラーで失敗させる
 **Pros**（長所）:
@@ -119,18 +133,27 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 
 **Cost/Effort**（コスト・工数）: 低
 
+**Decision**: REJECTED
+
 ### Decision（決定）
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A (警告を出してスキップ)
 
 **Rationale**（理由）:
-チームで議論して決定する必要があります。
+- STATUS 更新は正常に完了しており、Issue クローズは付加的な機能
+- Issue クローズ失敗で workflow 全体を失敗扱いにするのは過剰
+- ログに明確な警告メッセージを出力することで問題を把握可能
+- 手動で Issue をクローズする代替手段が存在する
+- workflow の安定性を優先
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- ログを確認しない場合、Issue がクローズされていないことに気づかない可能性
+- 手動での Issue クローズ作業が発生する可能性
 
 **Non-Negotiables**（譲れない点）:
-- エラー時のログは明確に出力する
+- エラー時のログは明確に出力する（⚠️ 警告マークを使用）
 - ISSUE_URL の存在確認は必須
+- `.metadata` ファイルの存在確認は必須
+- Issue 番号抽出失敗時のエラーメッセージを詳細に記録
 
 ### Impact（影響）
 - **Technical**（技術的）: エラーハンドリングの実装
@@ -155,11 +178,11 @@ Issue を自動的にクローズする際に、どのようなコメントを�
 ## Quick Reference（クイックリファレンス）
 
 ### All Confirmed Decisions（全確定済み決定）
-（なし）
+1. **Issue クローズ時のコメント内容**: Option A (シンプルなメッセージ) - 2025-12-27 by lleizh
+2. **エラーハンドリング戦略**: Option A (警告を出してスキップ) - 2025-12-27 by lleizh
 
 ### Pending Decisions（保留中の決定）
-1. **Issue クローズ時のコメント内容**: Awaiting team discussion - TBD
-2. **エラーハンドリング戦略**: Awaiting team discussion - TBD
+（なし）
 
 ---
 
