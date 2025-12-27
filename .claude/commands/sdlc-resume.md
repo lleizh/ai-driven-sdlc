@@ -77,30 +77,45 @@ fi
 `.metadata` を更新：
 
 ```bash
-# STATUS を復元
-if [[ -n "$PREVIOUS_STATUS" && "$STATUS" == "blocked" ]]; then
-  STATUS=$PREVIOUS_STATUS
-elif [[ "$STATUS" == "blocked" ]]; then
-  # PREVIOUS_STATUS がない場合はデフォルト
-  STATUS=implementing
+# PREVIOUS_STATUS から STATUS を復元（なければ implementing に設定）
+if grep -q "^PREVIOUS_STATUS=" sdlc/features/${FEATURE_ID}/.metadata; then
+  previous_status=$(grep "^PREVIOUS_STATUS=" sdlc/features/${FEATURE_ID}/.metadata | cut -d= -f2)
+  sed -i '' "s/^STATUS=.*/STATUS=${previous_status}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  sed -i '' 's/^STATUS=.*/STATUS=implementing/' sdlc/features/${FEATURE_ID}/.metadata
 fi
 
-# blocked 関連フィールドをクリア
-BLOCKED_REASON=""
-BLOCKED_DATE=""
-BLOCKED_BY=""
+# blocked 関連フィールドを削除
+sed -i '' '/^BLOCKED_REASON=/d' sdlc/features/${FEATURE_ID}/.metadata
+sed -i '' '/^BLOCKED_DATE=/d' sdlc/features/${FEATURE_ID}/.metadata
+sed -i '' '/^BLOCKED_BY=/d' sdlc/features/${FEATURE_ID}/.metadata
+sed -i '' '/^PREVIOUS_STATUS=/d' sdlc/features/${FEATURE_ID}/.metadata
 
 # 再開情報を記録
-RESUMED_DATE={YYYY-MM-DD}
-RESUMED_AFTER_REVISION={true/false}
+current_date=$(date +%Y-%m-%d)
+echo "RESUMED_DATE=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
 
-# PREVIOUS_STATUS をクリア
-PREVIOUS_STATUS=""
-
-LAST_UPDATED={YYYY-MM-DD}
+# LAST_UPDATED を更新
+if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
+  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
+fi
 ```
 
-### 7. 完了メッセージ
+### 7. Commit と Push
+
+```bash
+# .metadata の変更を commit
+git add sdlc/features/${FEATURE_ID}/.metadata
+git commit -m "chore(${FEATURE_ID}): resume from blocked status
+
+Related: #<issue-number>"
+
+git push origin feature/${FEATURE_ID}
+```
+
+### 8. 完了メッセージ
 
 ```
 ✅ 実装を再開しました
