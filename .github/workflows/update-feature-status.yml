@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
 
     steps:
       - name: Checkout
@@ -152,3 +153,59 @@ jobs:
           echo "次のステップ:"
           echo "- sync-projects.yml が自動的にトリガーされます"
           echo "- GitHub Projects の Status が 'Done' に更新されます"
+
+      - name: Close related GitHub Issue
+        if: steps.extract.outputs.is_merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FEATURE_ID="${{ steps.extract.outputs.feature_id }}"
+          METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
+
+          echo "=========================================="
+          echo "GitHub Issue をクローズ中: $FEATURE_ID"
+          echo "=========================================="
+
+          # .metadata から ISSUE_URL を抽出
+          if [[ ! -f "$METADATA_FILE" ]]; then
+            echo "⚠️ 警告: .metadata ファイルが見つかりません"
+            echo "⚠️ Issue のクローズをスキップします"
+            exit 0
+          fi
+
+          ISSUE_URL=$(grep "^ISSUE_URL=" "$METADATA_FILE" | cut -d= -f2)
+
+          if [[ -z "$ISSUE_URL" ]]; then
+            echo "⚠️ 警告: ISSUE_URL が .metadata に存在しません"
+            echo "⚠️ Issue のクローズをスキップします"
+            exit 0
+          fi
+
+          echo "✓ ISSUE_URL を確認: $ISSUE_URL"
+
+          # Issue 番号を抽出
+          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oP 'issues/\K[0-9]+')
+
+          if [[ -z "$ISSUE_NUMBER" ]]; then
+            echo "❌ エラー: ISSUE_URL から Issue 番号を抽出できませんでした"
+            echo "❌ ISSUE_URL: $ISSUE_URL"
+            exit 1
+          fi
+
+          echo "✓ Issue 番号を抽出: #$ISSUE_NUMBER"
+
+          # Issue をクローズ
+          echo "Issue #$ISSUE_NUMBER をクローズ中..."
+          gh issue close "$ISSUE_NUMBER" --comment "✅ Feature completed and merged to develop. Automatically closed by workflow."
+
+          if [[ $? -eq 0 ]]; then
+            echo "✓ Issue #$ISSUE_NUMBER をクローズしました"
+          else
+            echo "❌ エラー: Issue #$ISSUE_NUMBER のクローズに失敗しました"
+            exit 1
+          fi
+
+          echo ""
+          echo "=========================================="
+          echo "✅ $FEATURE_ID の Issue をクローズしました"
+          echo "=========================================="
