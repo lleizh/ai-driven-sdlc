@@ -85,7 +85,43 @@ Decision Maker が最終決定を確定し、decisions.md に記録します。
 Status: FROZEN
 ```
 
-### 5. 完了メッセージ
+### 5. メタデータ更新
+
+`.metadata` を更新：
+```bash
+# DECISION_STATUS を confirmed に変更
+sed -i '' 's/^DECISION_STATUS=.*/DECISION_STATUS=confirmed/' sdlc/features/${FEATURE_ID}/.metadata
+
+# LAST_UPDATED を更新
+current_date=$(date +%Y-%m-%d)
+if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
+  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
+else
+  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
+fi
+```
+
+### 6. Commit と Push
+
+```bash
+# 全ての変更を commit
+git add sdlc/features/${FEATURE_ID}/decisions.md
+git add sdlc/features/${FEATURE_ID}/.metadata
+
+if [ -f "sdlc/features/${FEATURE_ID}/20_design.md" ]; then
+  git add sdlc/features/${FEATURE_ID}/20_design.md
+fi
+
+git commit -m "docs(${FEATURE_ID}): confirm decisions
+
+Decision Maker: ${DECISION_MAKER}
+
+Related: #<issue-number>"
+
+git push origin feature/${FEATURE_ID}
+```
+
+### 7. 完了メッセージ
 
 **Blocker がない場合（CONFIRMED 成功）**：
 ```

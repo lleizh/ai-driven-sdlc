@@ -140,9 +140,43 @@ REVISION_2_REASON=External API changed
 DECISION_STATUS=revised
 ```
 
-### 4. Revision PR の作成
+### 4. Commit と Push
 
-Design の変更が大きい場合は Revision PR を作成：
+```bash
+# 全ての変更を commit
+git add sdlc/features/${FEATURE_ID}/
+
+git commit -m "docs(${FEATURE_ID}): Decision Revision #${N}
+
+${Why Revise}
+
+Decision Maker: ${DECISION_MAKER}
+Impact Scope: ${IMPACT_SCOPE}
+
+Related: #<issue-number>"
+
+git push origin feature/${FEATURE_ID}
+```
+
+### 5. Revision PR の判断基準
+
+変更の大きさに応じて PR を作成するか判断：
+
+**大きな変更**（Revision PR 必須）:
+- アーキテクチャの変更
+- API 設計の変更
+- データモデルの変更
+- High Risk の導入
+- 複数モジュールへの影響
+
+**小さな変更**（PR 不要、feature ブランチで続行）:
+- 実装の詳細変更のみ
+- パフォーマンス最適化の手法
+- Low/Medium Risk のみ
+- 単一モジュールへの影響
+
+### 6. Revision PR 作成（大きな変更の場合）
+
 ```bash
 gh pr create \
   --title "Revision: {FEATURE_ID} - Decision Revision #{N}" \
@@ -151,9 +185,7 @@ gh pr create \
   --base develop
 ```
 
-変更が小さい場合は PR 不要（feature ブランチで続行）
-
-### 5. 完了メッセージ
+### 7. 完了メッセージ
 
 ```
 ✅ Decision Revision {連番} を記録しました
