@@ -83,7 +83,9 @@ Configure the default Status field with SDLC status values directly (no mapping 
 
 ### Chosen Option
 
-Update the default Status field options during install.sh to use our SDLC status values directly. This eliminates the need for mapping logic in workflows.
+Create a custom "Status" field during install.sh with SDLC status values. This eliminates the need for mapping logic in workflows.
+
+Note: We create a custom field named "Status" rather than modifying GitHub's default Status field, as the default field cannot be customized via API.
 
 ### Rejected Options
 
@@ -96,20 +98,23 @@ Update the default Status field options during install.sh to use our SDLC status
 ### Rationale
 
 - Preserves all SDLC workflow stages with full granularity
-- Uses GitHub's native Status field (simpler than custom fields)
+- Creates a custom "Status" field with our SDLC values
 - No mapping logic needed in workflows (direct 1:1 correspondence)
 - Maintains clarity and simplicity
 - All status transitions are explicit and traceable
+- Avoids limitations of GitHub's default Status field (cannot be customized)
 
 ### Accepted Risks
 
-- Default Status field options are customized, deviating from GitHub's default values
-- New Projects will need to run install.sh to configure Status field correctly
+- Creates a custom field rather than using GitHub's built-in Status field
+- New Projects will need to run install.sh to create the Status field
+- Team members need to use the custom "Status" field, not the default one
 
 ### Non-Negotiables
 
 - Must maintain all SDLC stages (Planning, Design, Implementation, Testing, Review, Done, Blocked)
-- Status field must be configured during install.sh
+- Status field must be created during install.sh
+- Field name must be "Status" (same as default, for consistency)
 
 ### Consequences
 

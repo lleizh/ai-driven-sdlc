@@ -407,73 +407,44 @@ setup_github_project() {
 
   print_success "Project 作成成功: $PROJECT_URL"
 
-  # Create custom fields (3 fields)
-  # Note: We use GitHub's default "Status" field instead of custom "SDLC Status" (FEATURE-20)
+  # Create custom fields (4 fields)
+  # Note: Create custom "Status" field with SDLC values (FEATURE-20)
   print_info "カスタムフィールドを作成中..."
 
-  # Get default Status field ID and update with SDLC values
-  print_info "デフォルト Status フィールドを取得中..."
+  # Field 1: Status (Single Select) - Custom field with SDLC values
+  print_info "Status フィールドを作成中..."
   STATUS_FIELD_ID=$(gh api graphql -f query='
-    query($projectId: ID!) {
-      node(id: $projectId) {
-        ... on ProjectV2 {
-          fields(first: 20) {
-            nodes {
-              ... on ProjectV2SingleSelectField {
-                id
-                name
-              }
-            }
+    mutation($projectId: ID!) {
+      createProjectV2Field(input: {
+        projectId: $projectId
+        dataType: SINGLE_SELECT
+        name: "Status"
+        singleSelectOptions: [
+          {name: "Planning", color: GRAY, description: "Planning phase"},
+          {name: "Design", color: BLUE, description: "Design phase"},
+          {name: "Implementation", color: YELLOW, description: "Implementation phase"},
+          {name: "Testing", color: ORANGE, description: "Testing phase"},
+          {name: "Review", color: PURPLE, description: "Review phase"},
+          {name: "Done", color: GREEN, description: "Completed"},
+          {name: "Blocked", color: RED, description: "Blocked"}
+        ]
+      }) {
+        projectV2Field {
+          ... on ProjectV2SingleSelectField {
+            id
           }
         }
       }
     }
-  ' -f projectId="$PROJECT_ID" --jq '.data.node.fields.nodes[] | select(.name == "Status") | .id' 2>/dev/null || echo "")
+  ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
   if [[ -n "$STATUS_FIELD_ID" ]]; then
-    print_success "デフォルト Status フィールド取得成功: $STATUS_FIELD_ID"
-
-    # Update Status field options to SDLC values
-    print_info "Status フィールドに SDLC ステータス値を設定中..."
-    gh api graphql -f query='
-      mutation($projectId: ID!, $fieldId: ID!) {
-        updateProjectV2Field(input: {
-          projectId: $projectId
-          fieldId: $fieldId
-          singleSelectOptions: [
-            {name: "Planning", color: GRAY, description: "Planning phase"},
-            {name: "Design", color: BLUE, description: "Design phase"},
-            {name: "Implementation", color: YELLOW, description: "Implementation phase"},
-            {name: "Testing", color: ORANGE, description: "Testing phase"},
-            {name: "Review", color: PURPLE, description: "Review phase"},
-            {name: "Done", color: GREEN, description: "Completed"},
-            {name: "Blocked", color: RED, description: "Blocked"}
-          ]
-        }) {
-          projectV2Field {
-            ... on ProjectV2SingleSelectField {
-              id
-              options {
-                id
-                name
-              }
-            }
-          }
-        }
-      }
-    ' -f projectId="$PROJECT_ID" \
-      -f fieldId="$STATUS_FIELD_ID" > /dev/null 2>&1
-
-    if [[ $? -eq 0 ]]; then
-      print_success "Status フィールドのオプションを SDLC 値に更新しました"
-    else
-      print_warning "Status フィールドのオプション更新に失敗しました（既存の値が保持されます）"
-    fi
+    print_success "Status フィールド作成成功"
   else
-    print_warning "Status フィールドが見つかりません"
+    print_warning "Status フィールド作成に失敗"
   fi
 
-  # Field 1: Feature ID (Text)
+  # Field 2: Feature ID (Text)
   FEATURE_FIELD_ID=$(gh api graphql -f query='
     mutation($projectId: ID!) {
       createProjectV2Field(input: {
@@ -496,7 +467,7 @@ setup_github_project() {
     print_warning "Feature ID フィールド作成に失敗"
   fi
 
-  # Field 2: Risk Level (Single Select)
+  # Field 3: Risk Level (Single Select)
   RISK_FIELD_ID=$(gh api graphql -f query='
     mutation($projectId: ID!) {
       createProjectV2Field(input: {
@@ -524,7 +495,7 @@ setup_github_project() {
     print_warning "Risk Level フィールド作成に失敗"
   fi
 
-  # Field 3: Decision Status (Single Select)
+  # Field 4: Decision Status (Single Select)
   DECISION_FIELD_ID=$(gh api graphql -f query='
     mutation($projectId: ID!) {
       createProjectV2Field(input: {
