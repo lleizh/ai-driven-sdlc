@@ -24,22 +24,29 @@ jobs:
           COMMIT_MSG=$(git log -1 --pretty=%B)
           echo "Commit message: $COMMIT_MSG"
 
-          # マージコミットかチェック
-          if ! git log -1 --pretty=%P | grep -q ' '; then
-            echo "⚠️ マージコミットではありません。スキップします。"
+          # PR マージかチェック（通常のマージコミットまたは Squash merge）
+          IS_PR_MERGE=false
+          MERGE_TYPE=""
+
+          # ケース1: 通常のマージコミット（2つの親を持つ）
+          if git log -1 --pretty=%P | grep -q ' '; then
+            echo "✓ マージコミットです（Create a merge commit）"
+            IS_PR_MERGE=true
+            MERGE_TYPE="merge"
+          # ケース2: Squash merge（コミットメッセージに (#数字) を含む）
+          elif echo "$COMMIT_MSG" | grep -qE '\(#[0-9]+\)'; then
+            echo "✓ Squash merge です"
+            IS_PR_MERGE=true
+            MERGE_TYPE="squash"
+          fi
+
+          if [[ "$IS_PR_MERGE" == "false" ]]; then
+            echo "⚠️ PR マージではありません。スキップします。"
             echo "is_merge=false" >> $GITHUB_OUTPUT
             exit 0
           fi
 
-          echo "✓ マージコミットです"
-
           # マージ元のブランチ名を取得
-          # Merge commit の2つ目の親（マージされたブランチ）からブランチ名を推定
-          MERGE_PARENT=$(git log -1 --pretty=%P | awk '{print $2}')
-
-          # git reflog から最近マージされたブランチを探す
-          # 注: GitHub Actions では限られた情報しか取得できないため、
-          # コミットメッセージからブランチ名を抽出する方法を使用
           BRANCH_NAME=""
 
           # パターン1: "Merge pull request #123 from owner/feature/FEATURE-19"
@@ -48,6 +55,9 @@ jobs:
           # パターン2: "Merge branch 'feature/FEATURE-19' into develop"
           elif echo "$COMMIT_MSG" | grep -qE "Merge branch 'feature/FEATURE-[0-9]+'"; then
             BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE "feature/FEATURE-[0-9]+" | head -1)
+          # パターン3: Squash merge - "FEATURE-19: タイトル (#123)"
+          elif echo "$COMMIT_MSG" | grep -qE '^FEATURE-[0-9]+:.*\(#[0-9]+\)'; then
+            BRANCH_NAME=$(echo "$COMMIT_MSG" | grep -oE '^FEATURE-[0-9]+' | sed 's/^/feature\//')
           fi
 
           if [[ -z "$BRANCH_NAME" ]]; then
@@ -57,6 +67,7 @@ jobs:
           fi
 
           echo "✓ マージ元ブランチ: $BRANCH_NAME"
+          echo "✓ マージタイプ: $MERGE_TYPE"
 
           # Strict pattern で Feature ID を抽出: ^feature/FEATURE-[0-9]+$
           if [[ $BRANCH_NAME =~ ^feature/(FEATURE-[0-9]+)$ ]]; then
