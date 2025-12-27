@@ -281,20 +281,22 @@ jobs:
               }
             ' -f projectId="$PROJECT_ID")
 
-            # Status フィールドの更新
+            # Status フィールドの更新（デフォルト Status フィールドを使用）
             if [[ -n "$STATUS" ]]; then
-              # STATUS 値を GitHub Project の表記に変換
+              # STATUS 値を GitHub Project の標準 Status 値に変換（D-002 のマッピング戦略）
               case "$STATUS" in
-                "planning") PROJECT_STATUS="Planning" ;;
-                "implementing") PROJECT_STATUS="Implementing" ;;
-                "testing") PROJECT_STATUS="Testing" ;;
-                "completed") PROJECT_STATUS="Completed" ;;
-                "on-hold") PROJECT_STATUS="On Hold" ;;
+                "planning") PROJECT_STATUS="Todo" ;;
+                "design") PROJECT_STATUS="In Progress" ;;
+                "implementing") PROJECT_STATUS="In Progress" ;;
+                "testing") PROJECT_STATUS="In Progress" ;;
+                "review") PROJECT_STATUS="In Review" ;;
+                "completed") PROJECT_STATUS="Done" ;;
+                "on-hold") PROJECT_STATUS="Todo" ;;
                 *) PROJECT_STATUS="" ;;
               esac
 
               if [[ -n "$PROJECT_STATUS" ]]; then
-                STATUS_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_STATUS" '.data.node.fields.nodes[] | select(.name == "SDLC Status") | .options[] | select(.name == $name) | .id')
+                STATUS_OPTION_ID=$(echo "$FIELD_OPTIONS" | jq -r --arg name "$PROJECT_STATUS" '.data.node.fields.nodes[] | select(.name == "Status") | .options[] | select(.name == $name) | .id')
 
                 if [[ -n "$STATUS_OPTION_ID" ]]; then
                   if gh api graphql -f query='
