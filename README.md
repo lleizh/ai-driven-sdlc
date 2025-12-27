@@ -51,8 +51,7 @@ gh auth login
 |---------|------|------|
 | `master` | 本番リリース用（安定版） | ✓ |
 | `develop` | 主開発ブランチ（デフォルト） | ✓ |
-| `feature/FEATURE-XXX` | 低リスク機能の開発 | - |
-| `design/FEATURE-XXX` | 中/高リスク機能の Design Review | - |
+| `feature/FEATURE-XXX` | 機能開発（全リスクレベル） | - |
 
 ### GitHub Actions による自動同期
 
@@ -60,8 +59,7 @@ gh auth login
 
 - `master` - 本番リリース時
 - `develop` - 開発ブランチへのマージ時
-- `feature/**` - 低リスク機能の実装中
-- `design/**` - 中/高リスク機能の Design Review 中
+- `feature/**` - 機能の実装中
 
 これにより、merge を待たずに開発進捗を GitHub Projects で追跡できます。
 
@@ -181,6 +179,8 @@ Claude Code で対話しながら実装：
 
 ## コマンド一覧
 
+完全なコマンドリストと STATUS 管理については [STATUS_MANAGEMENT.md](./STATUS_MANAGEMENT.md) を参照してください。
+
 | コマンド | 説明 | 使用タイミング |
 |---------|------|--------------|
 | `/sdlc-issue` | 対話から Issue 作成 | 対話中に Issue 化したい時 |
@@ -189,9 +189,11 @@ Claude Code で対話しながら実装：
 | `/sdlc-decision <feature-id>` | Decision 確定 | Team Review 後 |
 | `/sdlc-impl-plan <feature-id>` | 実装計画生成 | Decision 確定後 |
 | `/sdlc-coding <feature-id>` | 実装実行 | Decision 確定後 |
-| `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
-| `/sdlc-check <feature-id>` | 一致性チェック | 実装完了後 |
+| `/sdlc-test <feature-id>` | テスト実行 | 実装完了後 |
+| `/sdlc-check <feature-id>` | 一致性チェック | テスト完了後 |
 | `/sdlc-pr-code <feature-id>` | Implementation PR | チェック通過後 |
+| `/sdlc-revise <feature-id>` | Decision 修正（Design Drift） | 実装中に前提崩壊時 |
+| `/sdlc-resume <feature-id>` | blocked 状態から再開 | Revision 完了後 |
 
 ---
 
