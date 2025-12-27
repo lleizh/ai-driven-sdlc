@@ -68,10 +68,6 @@ CONFIRMED でない場合、**エラー終了**：
 
 ### 4. ブランチ確認と Rebase
 
-現在のブランチを確認：
-- `feature/{FEATURE_ID}` → OK
-- それ以外 → 警告表示
-
 develop から最新を取得して rebase：
 ```bash
 echo "📊 Rebasing with develop..."
@@ -121,10 +117,6 @@ gh pr create \
 - Branch: feature/{FEATURE_ID}
 - Label: implementation
 - Status: review
-
-⚠️ GitHub Branch Protection:
-PR マージ前に、GitHub が自動的に branch が up-to-date か確認します。
-数日後に develop が進んだ場合、GitHub UI の "Update branch" をクリックしてください。
 
 次のステップ:
 - CI チェックを確認
