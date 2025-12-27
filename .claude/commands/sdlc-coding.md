@@ -86,8 +86,14 @@ BRANCH=feature/{FEATURE_ID}
 ビルド結果: PASS/FAIL
 
 次のステップ: 
-1. コード変更を確認
-2. /sdlc-pr-code でPR作成
+{Medium/High リスクの場合}
+1. /sdlc-test {FEATURE_ID} でテストを実行
+2. /sdlc-check {FEATURE_ID} で最終確認
+3. /sdlc-pr-code {FEATURE_ID} でPR作成
+
+{Low リスクの場合}
+1. /sdlc-check {FEATURE_ID} で最終確認
+2. /sdlc-pr-code {FEATURE_ID} でPR作成
 ```
 
 ---
