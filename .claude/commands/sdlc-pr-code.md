@@ -72,7 +72,15 @@ CONFIRMED でない場合、**エラー終了**：
 - `feature/{FEATURE_ID}` → OK
 - それ以外 → 警告表示
 
-### 5. PR 作成
+### 5. メタデータ更新
+
+`.metadata` を更新：
+```
+STATUS=review
+LAST_UPDATED={YYYY-MM-DD}
+```
+
+### 6. PR 作成
 
 ```bash
 gh pr create \
@@ -82,7 +90,7 @@ gh pr create \
   --base develop
 ```
 
-### 6. 完了メッセージ
+### 7. 完了メッセージ
 
 ```
 ✅ Implementation PR を作成しました
@@ -91,6 +99,7 @@ gh pr create \
 - URL: {GitHub PR URL}
 - Branch: feature/{FEATURE_ID}
 - Label: implementation
+- Status: review
 
 次のステップ:
 - CI チェックを確認

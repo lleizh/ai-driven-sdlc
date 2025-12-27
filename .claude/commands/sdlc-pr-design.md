@@ -77,7 +77,15 @@
 git checkout -b design/{FEATURE_ID}
 ```
 
-### 4. PR 作成
+### 4. メタデータ更新
+
+`.metadata` を更新：
+```
+STATUS=design
+LAST_UPDATED={YYYY-MM-DD}
+```
+
+### 5. PR 作成
 
 ```bash
 gh pr create \
@@ -87,7 +95,7 @@ gh pr create \
   --base develop
 ```
 
-### 5. 完了メッセージ
+### 6. 完了メッセージ
 
 ```
 ✅ Design Review PR を作成しました
@@ -96,6 +104,7 @@ gh pr create \
 - URL: {GitHub PR URL}
 - Branch: design/{FEATURE_ID}
 - Label: design-review
+- Status: design
 
 次のステップ:
 - チームメンバーをレビュアーに追加
