@@ -1,3 +1,7 @@
+---
+description: Decision Maker が最終決定を確定し、decisions.md に記録する
+---
+
 # Command: /sdlc-decision
 
 Decision Maker が最終決定を確定し、decisions.md に記録します。
@@ -19,148 +23,174 @@ Decision Maker が最終決定を確定し、decisions.md に記録します。
 
 ## 実行内容
 
-### 1. ドキュメント読取
+### 1. 前提確認
 
-- `sdlc/features/{FEATURE_ID}/decisions.md`
-- `sdlc/features/{FEATURE_ID}/20_design.md`（存在する場合）
+**共有スクリプトを使用**：
+```bash
+source scripts/common-functions.sh
 
-### 2. 入力された決定内容を記録
+# Feature 存在確認
+check_feature_exists "$FEATURE_ID" || exit 1
 
-`decisions.md` を更新：
-- Status: PENDING → **CONFIRMED**
-- Chosen Option を記入
-- Rejected Options を記入
-- Rationale を記入
-- Accepted Risks を記入
-- Non-Negotiables を記入
-- Decision Maker を記入
-- Date: 今日の日付
+# ブランチ検証
+scripts/check-branch.sh "$FEATURE_ID" || exit 1
 
-### 3. 矛盾チェック（Blocker 判定）
+# decisions.md 存在確認
+DECISIONS_FILE="sdlc/features/${FEATURE_ID}/decisions.md"
+if [[ ! -f "$DECISIONS_FILE" ]]; then
+    display_error \
+        "decisions.md が見つかりません" \
+        "/sdlc-init ${FEATURE_ID} を先に実行してください"
+    exit 1
+fi
 
-入力された決定内容（Chosen Option, Rationale）と既存ドキュメントとの矛盾をチェック：
+# 既に CONFIRMED でないか確認
+DECISION_STATUS=$(get_metadata_value "$FEATURE_ID" "DECISION_STATUS")
+if [[ "$DECISION_STATUS" == "confirmed" ]]; then
+    echo "⚠️ 既に CONFIRMED です"
+    echo "修正が必要な場合は /sdlc-revise を使用してください"
+    exit 0
+fi
+```
+
+### 2. ドキュメント読取
+
+以下のドキュメントを読み取る：
+- `decisions.md`
+- `00_context.md`
+- `risks.md`
+- `20_design.md`（存在する場合）
+
+### 3. ユーザー入力を収集
+
+以下の情報を収集：
+```bash
+read -p "Decision Topic: " TOPIC
+read -p "Chosen Option: " CHOSEN
+read -p "Rejected Options (カンマ区切り): " REJECTED
+read -p "Rationale: " RATIONALE
+read -p "Accepted Risks (カンマ区切り): " ACCEPTED_RISKS
+read -p "Non-Negotiables (カンマ区切り): " NON_NEGOTIABLES
+read -p "Decision Maker (名前): " MAKER
+```
+
+### 4. 矛盾チェック
+
+入力された決定内容と既存ドキュメントとの矛盾をチェック：
 
 **チェック対象**：
 - `risks.md` → High/Critical Risk の緩和策と矛盾していないか
 - `00_context.md` → Constraints, Non-Goals と矛盾していないか
-- `20_design.md`（存在する場合）→ Invariants を破壊していないか
+- `20_design.md` → Invariants を破壊していないか
 
 **矛盾の分類**：
 
-#### ❌ Blocker 級矛盾（CONFIRM を阻止、修正必須）
+#### Blocker 級矛盾（CONFIRM を阻止）
 
-以下の矛盾が見つかった場合、**Status は PENDING のまま、CONFIRM しない**：
-- decisions.md に記載された **Non-Negotiables** と矛盾
-- `risks.md` の **High/Critical Risk** の緩和策と矛盾
-- 新しい **未記録の High/Critical Risk** を導入
-- `design.md` の **Invariants**（不変条件）を破壊
-- `00_context.md` の **Hard Constraints** に違反
+以下の矛盾が見つかった場合、Status は PENDING のまま、CONFIRM しない：
+- Non-Negotiables と矛盾
+- `risks.md` の High/Critical Risk の緩和策と矛盾
+- 新しい未記録の High/Critical Risk を導入
+- `design.md` の Invariants を破壊
+- `00_context.md` の Hard Constraints に違反
 
-#### ⚠️ Warning 級矛盾（記録するが CONFIRM 可）
+#### Warning 級矛盾（記録するが CONFIRM 可）
 
 以下は警告として記録するが、CONFIRM は許可：
 - `risks.md` の Medium Risk 緩和策と軽微に不一致
-- `design.md` の推奨パターンから逸脱（強制ではない）
+- `design.md` の推奨パターンから逸脱
 - `00_context.md` の Soft Constraints から逸脱
 
-**矛盾解決フロー**：
+**Blocker 発見時**：
+- 矛盾の詳細を表示
+- Status は PENDING のまま
+- 実行を停止
+- Decision Maker に選択肢を提示：
+  - 選択肢 A: Chosen Option を修正して再実行
+  - 選択肢 B: 矛盾するドキュメントを更新して再実行
 
-1. **Blocker 発見時**：
-   - 矛盾の詳細を表示（どの文書のどの箇所と矛盾するか）
-   - **Status は PENDING のまま（CONFIRM しない）**
-   - Decision Maker に以下の選択肢を提示：
-     - **選択肢 A**: Chosen Option を修正し、`/sdlc-decision` を再実行
-     - **選択肢 B**: 矛盾するドキュメント（risks.md, context.md など）を更新してから再実行
-   - 実行を停止
+**Warning 発見時**：
+- 矛盾を `decisions.md` の Known Conflicts セクションに記録
+- Status を CONFIRMED に更新（処理続行）
+- 完了メッセージに警告を表示
 
-2. **Warning 発見時**：
-   - 矛盾を `decisions.md` の **Known Conflicts** セクションに記録
-   - Status を **CONFIRMED** に更新（処理続行）
-   - 完了メッセージに警告を表示
+### 5. decisions.md を更新
 
-### 4. Design ステータス更新
+`decisions.md` を更新：
+- Status: PENDING → CONFIRMED
+- Decision Topic, Chosen Option, Rejected Options, etc. を記入
+- Date: $(date +%Y-%m-%d)
+- Decision Maker: $MAKER
 
-`20_design.md` が存在する場合、ファイル冒頭に追加：
+Warning がある場合、Known Conflicts セクションに追加
+
+### 6. design.md を更新
+
+`20_design.md` が存在する場合：
+```markdown
+Status: APPROVED → FROZEN
 ```
-Status: FROZEN
-```
 
-### 5. メタデータ更新
+### 7. メタデータ更新
 
-`.metadata` を更新：
+**共有スクリプトを使用**：
 ```bash
-# DECISION_STATUS を confirmed に変更
-sed -i '' 's/^DECISION_STATUS=.*/DECISION_STATUS=confirmed/' sdlc/features/${FEATURE_ID}/.metadata
-
-# LAST_UPDATED を更新
-current_date=$(date +%Y-%m-%d)
-if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
-  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
-else
-  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
-fi
+scripts/update-metadata.sh "$FEATURE_ID" "DECISION_STATUS" "confirmed"
+scripts/update-metadata.sh "$FEATURE_ID" "LAST_UPDATED" "$(date +%Y-%m-%d)"
 ```
 
-### 6. Commit と Push
+### 8. Commit & Push
 
 ```bash
-# 全ての変更を commit
-git add sdlc/features/${FEATURE_ID}/decisions.md
-git add sdlc/features/${FEATURE_ID}/.metadata
+ISSUE_NUMBER=$(get_metadata_value "$FEATURE_ID" "ISSUE_URL" | grep -oE '[0-9]+$')
 
-if [ -f "sdlc/features/${FEATURE_ID}/20_design.md" ]; then
-  git add sdlc/features/${FEATURE_ID}/20_design.md
+git add "sdlc/features/${FEATURE_ID}/decisions.md"
+git add "sdlc/features/${FEATURE_ID}/.metadata"
+
+if [[ -f "sdlc/features/${FEATURE_ID}/20_design.md" ]]; then
+    git add "sdlc/features/${FEATURE_ID}/20_design.md"
 fi
 
 git commit -m "docs(${FEATURE_ID}): confirm decisions
 
-Decision Maker: ${DECISION_MAKER}
+Decision Maker: ${MAKER}
 
-Related: #<issue-number>"
+Related: #${ISSUE_NUMBER}"
 
-git push origin feature/${FEATURE_ID}
+git push origin "feature/${FEATURE_ID}"
 ```
 
-### 7. 完了メッセージ
+---
+
+## 完了後の次のステップ
 
 **Blocker がない場合（CONFIRMED 成功）**：
-```
-✅ Decision を CONFIRMED に更新しました
-
-ファイル: sdlc/features/{FEATURE_ID}/decisions.md
-Status: CONFIRMED
-Decision Maker: {名前}
-Date: {日付}
-
-⚠️ Warning: {数}
-{Warning がある場合、詳細を表示}
-
-次のステップ:
-1. /sdlc-impl-plan {FEATURE_ID} で実装計画を生成
-2. /sdlc-coding {FEATURE_ID} で実装を開始
-```
+1. `/sdlc-impl-plan {FEATURE_ID}` で実装計画を生成
+2. `/sdlc-coding {FEATURE_ID}` で実装を開始
 
 **Blocker がある場合（CONFIRMED 失敗）**：
-```
-❌ Decision を CONFIRMED できませんでした
+- 選択肢 A: Chosen Option を修正して再実行
+- 選択肢 B: 矛盾するドキュメントを更新して再実行
 
-Status: PENDING のまま
+---
 
-❌ Blocker: {数}
-- {Blocker 詳細1: どの文書のどの箇所と矛盾}
-- {Blocker 詳細2}
+## 共有スクリプトの活用
 
-解決方法:
-【選択肢 A】Chosen Option を修正
-  1. Chosen Option / Rationale を見直し
-  2. /sdlc-decision {FEATURE_ID} を再実行
+このコマンドは以下の共有機能を使用：
+- `check_feature_exists()` - Feature 存在確認
+- `check-branch.sh` - ブランチ検証
+- `get_metadata_value()` - Metadata 値取得
+- `display_error()` - エラー表示
+- `update-metadata.sh` - Metadata 更新
 
-【選択肢 B】矛盾文書を更新
-  1. {矛盾する文書} を修正（例: risks.md の緩和策を更新）
-  2. /sdlc-decision {FEATURE_ID} を再実行
+---
 
-⚠️ 注意: Blocker を解決せずに実装に進むと、/sdlc-check で再度ブロックされます
-```
+## 特徴
+
+**このコマンドの特殊性**：
+- 唯一の矛盾チェック機能（Blocker/Warning 判定）
+- Blocker がある場合は CONFIRM しない
+- Warning は記録するが CONFIRM 可能
 
 ---
 
@@ -169,10 +199,14 @@ Status: PENDING のまま
 - 新しい要件や設計を追加しない
 - 既存ドキュメントを勝手に修正しない
 - 矛盾がある場合は報告のみ
+- Blocker を解決せずに実装に進むと、/sdlc-check で再度ブロックされる
 
 ---
 
 ## エラー処理
 
-- Feature 不存在 → `❌ /sdlc-init を先に実行`
-- decisions.md が既に CONFIRMED → `⚠️ 既に CONFIRMED です`
+- Feature 不存在 → `check_feature_exists()` がエラー表示
+- ブランチ不一致 → `check-branch.sh` がエラー表示
+- decisions.md 不存在 → エラー表示
+- 既に CONFIRMED → 警告表示、/sdlc-revise を促す
+- Blocker 検出 → CONFIRM せず終了
