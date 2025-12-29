@@ -25,7 +25,8 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
-    # STATUS を更新
+    # STATUS を更新 (PROJECT_ROOT環境変数を設定)
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "STATUS" "implementing"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Updated existing key: STATUS"* ]]
@@ -43,7 +44,8 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
-    # 新しいキーを追加
+    # 新しいキーを追加 (PROJECT_ROOT環境変数を設定)
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "NEW_KEY" "new_value"
     [ "$status" -eq 0 ]
     [[ "$output" == *"Added new key: NEW_KEY"* ]]
@@ -61,7 +63,8 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
-    # LAST_UPDATED を更新
+    # LAST_UPDATED を更新 (PROJECT_ROOT環境変数を設定)
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "LAST_UPDATED" "2025-12-30"
     [ "$status" -eq 0 ]
 
@@ -77,7 +80,8 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
-    # 特殊文字を含む値を設定
+    # 特殊文字を含む値を設定 (PROJECT_ROOT環境変数を設定)
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     local url="https://github.com/test/repo/issues/123"
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "ISSUE_URL" "$url"
     [ "$status" -eq 0 ]
@@ -105,6 +109,7 @@ teardown() {
     cd "$TEST_TEMP_DIR" || return 1
     mkdir -p sdlc/features
 
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     run "${SCRIPTS_DIR}/update-metadata.sh" "FEATURE-999" "STATUS" "implementing"
     [ "$status" -eq 1 ]
     [[ "$output" == *"Feature not found"* ]]
@@ -123,8 +128,10 @@ teardown() {
     local feature_id="FEATURE-995"
     mkdir -p "sdlc/features/${feature_id}"
 
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "STATUS" "implementing"
-    [ "$status" -eq 2 ]
+    # check_feature_exists が .metadata の存在も確認するため、exit code 1 になる
+    [ "$status" -eq 1 ]
     [[ "$output" == *"Metadata file not found"* ]]
 }
 
@@ -138,6 +145,7 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     # 複数のキーを順次更新
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "STATUS" "implementing"
     [ "$status" -eq 0 ]
@@ -160,6 +168,7 @@ teardown() {
 
     cd "$TEST_TEMP_DIR" || return 1
 
+    export PROJECT_ROOT="$TEST_TEMP_DIR"
     # 最初の値を設定
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "STATUS" "planning"
     [ "$status" -eq 0 ]
