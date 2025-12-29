@@ -41,9 +41,6 @@ main() {
     local feature_id="$1"
     local expected_branch="feature/${feature_id}"
 
-    # プロジェクトルートに移動
-    cd "$PROJECT_ROOT"
-
     # Feature ID形式の検証
     if ! validate_feature_id "$feature_id"; then
         exit 2

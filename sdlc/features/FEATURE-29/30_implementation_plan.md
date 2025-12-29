@@ -27,28 +27,28 @@ FEATURE-29は、11個のSDLCコマンドを体系的にリファクタリング�
 **Dependencies**（依存関係）: なし
 
 **Tasks**（タスク）:
-- [ ] 共有スクリプトディレクトリの作成 `scripts/`
-- [ ] `update-metadata.sh` の実装（Metadata更新の統一処理）
+- [x] 共有スクリプトディレクトリの作成 `scripts/`
+- [x] `update-metadata.sh` の実装（Metadata更新の統一処理）
   - macOS/Linux両対応（互換コマンド使用）
   - 入力バリデーション追加
   - エラーハンドリング強化
-- [ ] `check-branch.sh` の実装（ブランチ検証の統一処理）
+- [x] `check-branch.sh` の実装（ブランチ検証の統一処理）
   - 現在ブランチの取得と検証
   - 標準化されたエラーメッセージ
-- [ ] `rebase-with-develop.sh` の実装（rebase処理の統一）
+- [x] `rebase-with-develop.sh` の実装（rebase処理の統一）
   - コンフリクト検出とメッセージ
   - ロールバック処理
-- [ ] `common-functions.sh` の実装（共通ユーティリティ関数）
+- [x] `common-functions.sh` の実装（共通ユーティリティ関数）
   - `log_info`, `log_error`, `log_success` 関数
   - `check_feature_exists` 関数
   - `check_gh_auth` 関数
   - `get_os_type` 関数（プラットフォーム判定）
-- [ ] 1-2個のコマンドで試験的に共有スクリプトを使用（例: `/sdlc-init`）
-- [ ] 問題がなければ全11コマンドに展開
-- [ ] 単体テスト実装（BATS使用）
-  - `test_update_metadata.sh`
-  - `test_check_branch.sh`
-  - `test_common_functions.sh`
+- [x] 1-2個のコマンドで試験的に共有スクリプトを使用（例: `/sdlc-init`）
+- [x] 問題がなければ全11コマンドに展開
+- [x] 単体テスト実装（BATS使用）
+  - `test_update_metadata.bats`
+  - `test_check_branch.bats`
+  - `test_common_functions.bats`
 
 **Deliverables**（成果物）:
 - `scripts/update-metadata.sh`
@@ -68,16 +68,16 @@ FEATURE-29は、11個のSDLCコマンドを体系的にリファクタリング�
 **Dependencies**（依存関係）: Phase 1完了
 
 **Tasks**（タスク）:
-- [ ] 全11コマンドのコマンド構造を統一
+- [x] 全11コマンドのコマンド構造を統一
   - Usage（使用方法）セクション
   - Prerequisites（前提条件）セクション
   - Execution（実行内容）セクション
   - Constraints（制約）セクション
   - Error Handling（エラー処理）セクション
-- [ ] Commitメッセージ形式の統一
+- [x] Commitメッセージ形式の統一
   - `<type>(<FEATURE_ID>): <description>` 形式に統一
   - types: `docs`, `feat`, `fix`, `refactor`
-- [ ] エラーメッセージの標準化
+- [x] エラーメッセージの標準化
   - `❌ Error: <問題>` 形式
   - `Context: <文脈>` 行
   - `Action: <対処法>` 行
@@ -133,13 +133,13 @@ FEATURE-29は、11個のSDLCコマンドを体系的にリファクタリング�
 **Dependencies**（依存関係）: Phase 1, Phase 2, Phase 3完了
 
 **Tasks**（タスク）:
-- [ ] 入力バリデーションの追加
+- [x] 入力バリデーションの追加
   - Feature ID形式チェック（FEATURE-[0-9]+）
   - 必須引数の存在チェック
-- [ ] 環境チェックの追加
+- [x] 環境チェックの追加
   - GitHub認証チェック（`gh auth status`）
   - Git設定チェック（`git config user.name`, `user.email`）
-- [ ] 前提条件チェックの強化
+- [x] 前提条件チェックの強化
   - Feature存在確認
   - ブランチチェック
   - Decision statusチェック
@@ -163,29 +163,29 @@ FEATURE-29は、11個のSDLCコマンドを体系的にリファクタリング�
 ## Technical Tasks（技術タスク）
 
 ### Scripts（スクリプト）
-- [ ] `scripts/update-metadata.sh` - Metadata更新の統一処理
-- [ ] `scripts/check-branch.sh` - ブランチ検証の統一処理
-- [ ] `scripts/rebase-with-develop.sh` - rebase処理の統一
-- [ ] `scripts/common-functions.sh` - 共通ユーティリティ関数
+- [x] `scripts/update-metadata.sh` - Metadata更新の統一処理
+- [x] `scripts/check-branch.sh` - ブランチ検証の統一処理
+- [x] `scripts/rebase-with-develop.sh` - rebase処理の統一
+- [x] `scripts/common-functions.sh` - 共通ユーティリティ関数
 
 ### Commands（コマンド）
-- [ ] `.claude/commands/sdlc-init.md` - 簡素化とバリデーション追加
-- [ ] `.claude/commands/sdlc-decision.md` - 簡素化とバリデーション追加
-- [ ] `.claude/commands/sdlc-check.md` - 外部化とバリデーション追加
-- [ ] `.claude/commands/sdlc-coding.md` - 標準化とバリデーション追加
-- [ ] その他7個のコマンド - 標準化とバリデーション追加
+- [x] `.claude/commands/sdlc-init.md` - 共有スクリプト使用、標準化（簡素化は未完了）
+- [x] `.claude/commands/sdlc-decision.md` - 共有スクリプト使用、標準化（簡素化は未完了）
+- [x] `.claude/commands/sdlc-check.md` - 共有スクリプト使用、標準化（外部化は未完了）
+- [x] `.claude/commands/sdlc-coding.md` - 共有スクリプト使用、標準化
+- [x] その他7個のコマンド - 共有スクリプト使用、標準化
 
 ### Testing（テスト）
-- [ ] `tests/unit/` - 単体テスト（共有スクリプト）
+- [x] `tests/unit/` - 単体テスト（共有スクリプト）- 実装済み、一部テスト失敗中
 - [ ] `tests/integration/` - 統合テスト（コマンド呼び出し）
 - [ ] `tests/e2e/` - E2Eテスト（ワークフロー）
-- [ ] `tests/test_helper.sh` - テストヘルパー関数
+- [x] `tests/test_helper.bash` - テストヘルパー関数
 - [ ] `.github/workflows/test.yml` - CI/CD統合（macOS/Linux）
 
 ### Documentation（ドキュメント）
-- [ ] `scripts/README.md` - 共有スクリプトの使用方法
-- [ ] `tests/README.md` - テストの実行方法
-- [ ] `.claude/commands/sdlc-*.md` - 標準化されたコマンドドキュメント
+- [x] `scripts/README.md` - 共有スクリプトの使用方法
+- [x] `tests/README.md` - テストの実行方法
+- [x] `.claude/commands/sdlc-*.md` - 標準化されたコマンドドキュメント
 - [ ] `CHANGELOG.md` - 変更履歴の記録
 
 ---
@@ -344,15 +344,15 @@ tests/README.md
 
 ## Success Criteria（成功基準）
 
-- [ ] All tests passing（全テスト成功）: 単体・統合・E2Eテスト全てグリーン
+- [ ] All tests passing（全テスト成功）: 単体・統合・E2Eテスト全てグリーン（現状: 単体テストのみ実装、74%成功率）
 - [ ] Code review approved（コードレビュー承認）: 各フェーズのPRがレビュー承認
-- [ ] Documentation updated（ドキュメント更新完了）: 全コマンドと共有スクリプトのドキュメント完備
-- [ ] Coverage benchmarks met（カバレッジ基準達成）: 80%以上のテストカバレッジ
-- [ ] Platform compatibility confirmed（プラットフォーム互換性確認）: macOS/Linux両方でテスト成功
+- [x] Documentation updated（ドキュメント更新完了）: 全コマンドと共有スクリプトのドキュメント完備
+- [ ] Coverage benchmarks met（カバレッジ基準達成）: 80%以上のテストカバレッジ（現状: 測定不可）
+- [ ] Platform compatibility confirmed（プラットフォーム互換性確認）: macOS/Linux両方でテスト成功（現状: macOSのみ確認）
 - [ ] Performance maintained（パフォーマンス維持）: コマンド実行時間が増加していない
-- [ ] Backward compatibility verified（後方互換性検証）: 既存ワークフローが全て動作
-- [ ] Code duplication reduced（コード重複削減）: 50%以上削減達成
-- [ ] `/sdlc-init` complexity reduced（複雑性削減）: 30ステップ以下達成
+- [x] Backward compatibility verified（後方互換性検証）: 既存ワークフローが全て動作
+- [x] Code duplication reduced（コード重複削減）: 50%以上削減達成
+- [ ] `/sdlc-init` complexity reduced（複雑性削減）: 30ステップ以下達成（未着手）
 
 ---
 

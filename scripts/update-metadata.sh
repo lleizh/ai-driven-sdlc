@@ -23,7 +23,8 @@ set -euo pipefail
 
 # スクリプトのディレクトリを取得
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+# テスト用に PROJECT_ROOT を環境変数で上書き可能にする
+PROJECT_ROOT="${PROJECT_ROOT:-$(cd "${SCRIPT_DIR}/.." && pwd)}"
 
 # 共通関数を読み込み
 # shellcheck source=scripts/common-functions.sh
