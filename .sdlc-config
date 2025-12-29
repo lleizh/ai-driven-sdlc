@@ -5,6 +5,12 @@
 REPO_OWNER=lleizh
 REPO_NAME=ai-driven-sdlc
 
+# Branch Strategy (Git Flow)
+# IMPORTANT: All PRs should target 'develop', NOT 'master'
+MAIN_BRANCH=master
+DEVELOP_BRANCH=develop
+DEFAULT_PR_BASE=develop
+
 # GitHub Project
 PROJECT_ID=PVT_kwHOAmY8_c4BLY9N
 PROJECT_NUMBER=7

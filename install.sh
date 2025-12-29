@@ -558,6 +558,12 @@ setup_github_project() {
 REPO_OWNER=$REPO_OWNER
 REPO_NAME=$REPO_NAME
 
+# Branch Strategy (Git Flow)
+# IMPORTANT: All PRs should target 'develop', NOT 'master'
+MAIN_BRANCH=master
+DEVELOP_BRANCH=develop
+DEFAULT_PR_BASE=develop
+
 # GitHub Project
 PROJECT_ID=$PROJECT_ID
 PROJECT_NUMBER=$PROJECT_NUMBER
