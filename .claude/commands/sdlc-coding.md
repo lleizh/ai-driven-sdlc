@@ -14,22 +14,31 @@ Decision 確定後、AI が実装を実行します。
 
 ## 実行内容
 
-### 1. 前提チェック
+### 1. 前提確認
 
-- Decision Status が CONFIRMED か確認
-- CONFIRMED でない場合、エラー終了
-
-### 2. ブランチ確認
-
+**共有スクリプトを使用**：
 ```bash
-# feature ブランチに切り替え
-git checkout feature/{FEATURE_ID}
+source scripts/common-functions.sh
 
-# develop から最新のドキュメントを取得
-git pull origin develop --rebase
+# Feature 存在確認
+check_feature_exists "$FEATURE_ID" || exit 1
+
+# ブランチ検証
+scripts/check-branch.sh "$FEATURE_ID" || exit 1
+
+# Decision Status 確認
+DECISION_STATUS=$(get_metadata_value "$FEATURE_ID" "DECISION_STATUS")
+
+if [[ "$DECISION_STATUS" != "confirmed" ]]; then
+    display_error \
+        "Decision が CONFIRMED ではありません" \
+        "現在: ${DECISION_STATUS}" \
+        "/sdlc-decision ${FEATURE_ID} で Decision を確定してください"
+    exit 1
+fi
 ```
 
-### 3. ドキュメント読取
+### 2. ドキュメント読取
 
 必須：
 - `.metadata`
@@ -41,7 +50,7 @@ git pull origin develop --rebase
 - `20_design.md`
 - `30_implementation_plan.md`
 
-### 4. 実装
+### 3. 実装
 
 decisions.md の Chosen Options に基づいて実装：
 - コード実装（新規ファイル作成、既存ファイル修正）
@@ -49,66 +58,47 @@ decisions.md の Chosen Options に基づいて実装：
 - テスト実行
 - ビルド確認
 
-### 5. メタデータ更新
+**実装の原則**：
+- Chosen Options に厳密に従う
+- Rejected Options は使用しない
+- Non-Negotiables を守る
 
-`.metadata` を更新：
+**Design Drift 検出**：
+実装中に Decision と矛盾が発生した場合、実装を停止し `/sdlc-revise` で Decision を修正するよう促す
+
+### 4. メタデータ更新
+
+**共有スクリプトを使用**：
 ```bash
-# STATUS を implementing に変更
-sed -i '' 's/^STATUS=.*/STATUS=implementing/' sdlc/features/${FEATURE_ID}/.metadata
-
-# LAST_UPDATED を更新
-current_date=$(date +%Y-%m-%d)
-if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
-  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
-else
-  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
-fi
-```
-
-### 6. Commit と Push
-
-```bash
-# .metadata の変更を commit
-git add sdlc/features/${FEATURE_ID}/.metadata
-git commit -m "chore(${FEATURE_ID}): update STATUS to implementing
-
-Related: #<issue-number>"
-
-git push origin feature/${FEATURE_ID}
-```
-
-### 7. 完了メッセージ
-
-```
-✅ 実装が完了しました
-
-ブランチ: feature/{FEATURE_ID}
-
-ファイル変更:
-- 新規: {count} ファイル
-- 修正: {count} ファイル
-
-テスト結果: PASS/FAIL
-ビルド結果: PASS/FAIL
-
-次のステップ: 
-{Medium/High リスクの場合}
-1. /sdlc-test {FEATURE_ID} でテストを実行
-2. /sdlc-check {FEATURE_ID} で最終確認
-3. /sdlc-pr-code {FEATURE_ID} でPR作成
-
-{Low リスクの場合}
-1. /sdlc-check {FEATURE_ID} で最終確認
-2. /sdlc-pr-code {FEATURE_ID} でPR作成
+scripts/update-metadata.sh "$FEATURE_ID" "STATUS" "implementing"
+scripts/update-metadata.sh "$FEATURE_ID" "LAST_UPDATED" "$(date +%Y-%m-%d)"
 ```
 
 ---
 
-## Design Drift 検出
+## 完了後の次のステップ
 
-実装中に Decision と矛盾が発生した場合：
-- 実装を停止
-- `/sdlc-revise` で Decision を修正するよう促す
+実装完了後、Risk Level に応じて：
+
+**Medium/High Risk**:
+1. `/sdlc-test {FEATURE_ID}` でテストを実行
+2. `/sdlc-check {FEATURE_ID}` で最終確認
+3. `/sdlc-pr-code {FEATURE_ID}` でPR作成
+
+**Low Risk**:
+1. `/sdlc-check {FEATURE_ID}` で最終確認
+2. `/sdlc-pr-code {FEATURE_ID}` でPR作成
+
+---
+
+## 共有スクリプトの活用
+
+このコマンドは以下の共有機能を使用：
+- `check_feature_exists()` - Feature 存在確認
+- `get_metadata_value()` - Metadata 値取得
+- `display_error()` - エラー表示
+- `check-branch.sh` - ブランチ検証
+- `update-metadata.sh` - Metadata 更新
 
 ---
 
@@ -117,11 +107,12 @@ git push origin feature/${FEATURE_ID}
 - Decision の内容に厳密に従う
 - 既存のコーディング規約に従う（CLAUDE.md）
 - 設計を再議論しない
+- コード変更は開発者自身が commit/push する
 
 ---
 
 ## エラー処理
 
-- Feature 不存在 → `❌ /sdlc-init を先に実行`
-- Decision 未確定 → `❌ /sdlc-decision で Decision を確定`
-- ブランチ切替失敗 → エラー内容を表示
+- Feature 不存在 → `check_feature_exists()` がエラー表示
+- Decision 未確定 → `display_error()` でガイダンス表示
+- ブランチ不一致 → `check-branch.sh` がエラー表示
