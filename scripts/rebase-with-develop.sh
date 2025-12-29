@@ -2,7 +2,7 @@
 #
 # rebase-with-develop.sh - rebase処理の統一
 #
-# このスクリプトは、現在のfeatureブランチをmasterブランチと
+# このスクリプトは、現在のfeatureブランチをdevelopブランチと
 # rebaseします。コンフリクトが発生した場合は適切に処理します。
 #
 # 使用方法:
@@ -65,7 +65,7 @@ main() {
 
     log_info "Fetching latest ${base_branch}..."
 
-    # 最新のmasterブランチを取得
+    # 最新のdevelopブランチを取得
     if ! git fetch origin "$base_branch" 2>&1; then
         log_error "Error: Failed to fetch ${base_branch}"
         log_error "   Context: リモートブランチの取得に失敗しました"
