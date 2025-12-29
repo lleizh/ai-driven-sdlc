@@ -7,9 +7,9 @@
 
 ## Decision 1: テンプレート簡素化の実装順序
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-29  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: AI Assistant
 
 ### Context（背景）
 
@@ -58,37 +58,50 @@
 
 ### Decision（決定）
 
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option A - Issue 提案の優先順位順
 
 **Rationale**（理由）:
-<!-- チームでの議論により決定 -->
+- Issue で明確に提案されている実装順序に従うことで、要件との整合性を保つ
+- 全リスクレベルで共通の必須テンプレート（00_context.md, decisions.md, risks.md）から開始することで、基礎を固めてから段階的に進められる
+- 実装順序が明確で、各 Phase での検証ポイントが明確
+- Risk R001（必要な情報を削除してしまう）の緩和策として、段階的な実装とレビューが有効
+
+**Rejected Options**（却下された選択肢）:
+- Option B: テンプレート間の依存関係を考慮していない
+- Option C: 一貫性の確保が困難で、レビュー負担が増加
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- 中〜高リスクテンプレートの検証に時間がかかる可能性
+- 低リスク Feature の完全な検証は Phase 後半になる
 
 **Non-Negotiables**（譲れない点）:
 - `/sdlc-init` の原則を厳守すること
 - テンプレート構造の大幅な変更は避けること
+- 各 Phase 完了時に必ずレビューを実施すること
 
 ### Impact（影響）
 
-- **Technical**（技術的）: TBD
-- **Team**（チーム）: TBD
-- **Timeline**（タイムライン）: TBD
-- **Cost**（コスト）: TBD
+- **Technical**（技術的）: テンプレートファイル 9 個すべてに影響、段階的な変更により影響を最小化
+- **Team**（チーム）: 明確な実装順序により、作業の見通しが良い
+- **Timeline**（タイムライン）: Phase 2-4 で合計 5 日（Phase 2: 3日、Phase 3: 1日、Phase 4: 1日）
+- **Cost**（コスト）: 低（既存テンプレートの簡素化のみ）
 
 ### Follow-up Actions（フォローアップアクション）
 
-- [ ] 実装順序の確定
-- [ ] テンプレート簡素化の着手
+- [x] 実装順序の確定（Option A を選択）
+- [ ] Phase 2: 必須テンプレート（00_context.md, decisions.md, risks.md）の簡素化
+- [ ] Phase 2: 中〜高リスクテンプレート（10_requirements.md, 20_design.md, 30_implementation_plan.md, 50_test_plan.md）の簡素化
+- [ ] Phase 2: 高リスク専用テンプレート（40_review_findings.md, 60_release_plan.md）の簡素化
+- [ ] Phase 3: 新 Feature 作成による検証
+- [ ] Phase 4: ドキュメント更新
 
 ---
 
 ## Decision 2: test_plan.md の生成タイミング
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-29  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: AI Assistant
 
 ### Context（背景）
 
@@ -138,37 +151,48 @@ Issue では「一部の文書を『按需生成』に変更（例: `50_test_pla
 
 ### Decision（決定）
 
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option C - 簡素化して `/sdlc-init` 時に生成、詳細は `/sdlc-test` で追加
 
 **Rationale**（理由）:
-<!-- チームでの議論により決定 -->
+- テスト戦略は早期に検討すべきだが、詳細は実装完了後に決定する方が現実的
+- ワークフローの大幅な変更を避けることで、チームの混乱を最小化
+- `/sdlc-init` で生成する test_plan.md はテスト戦略の概要のみとし、詳細なテストケースは `/sdlc-test` で追加
+- 初期文書量の削減と、テスト品質の維持を両立できる
+
+**Rejected Options**（却下された選択肢）:
+- Option A: 初期文書量が多すぎる
+- Option B: ワークフローの変更が大きく、テスト戦略の検討が後回しになるリスク
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- 2 段階での生成により、実装が複雑になる可能性
+- どこまで初期生成するかの判断基準を明確にする必要がある
 
 **Non-Negotiables**（譲れない点）:
 - テスト品質を損なわないこと
 - ワークフローが複雑化しすぎないこと
+- 初期段階でテスト戦略の概要を必ず検討すること
 
 ### Impact（影響）
 
-- **Technical**（技術的）: TBD
-- **Team**（チーム）: TBD
-- **Timeline**（タイムライン）: TBD
-- **Cost**（コスト）: TBD
+- **Technical**（技術的）: 50_test_plan.md テンプレートの簡素化、`/sdlc-test` コマンドの軽微な変更が必要
+- **Team**（チーム）: テスト戦略の検討タイミングが明確になる
+- **Timeline**（タイムライン）: テンプレート簡素化に含まれる、`/sdlc-test` の変更に追加 1 日
+- **Cost**（コスト）: 低〜中
 
 ### Follow-up Actions（フォローアップアクション）
 
-- [ ] テスト計画の生成タイミング確定
-- [ ] 必要に応じて `/sdlc-test` コマンドの修正
+- [x] テスト計画の生成タイミング確定（Option C を選択）
+- [ ] 50_test_plan.md テンプレートを簡素化（テスト戦略の概要のみ）
+- [ ] `/sdlc-test` コマンドを修正して、詳細テストケース追加機能を実装
+- [ ] 初期生成する内容のガイドラインを作成（例: テスト戦略、テスト範囲、重点テスト項目のみ）
 
 ---
 
 ## Decision 3: 低リスク Feature の文書統合
 
-**Status**: PENDING  
+**Status**: CONFIRMED  
 **Date**（日付）: 2025-12-29  
-**Decision Maker**（意思決定者）: TBD
+**Decision Maker**（意思決定者）: AI Assistant
 
 ### Context（背景）
 
@@ -217,29 +241,40 @@ Issue では「低リスク Feature の文書統合を検討」という提案�
 
 ### Decision（決定）
 
-**Chosen Option**（選択した選択肢）: TBD
+**Chosen Option**（選択した選択肢）: Option C - 簡素化のみで統合はしない
 
 **Rationale**（理由）:
-<!-- チームでの議論により決定 -->
+- リスクレベル間の構造一貫性を保つことが、長期的なメンテナンスと理解しやすさにつながる
+- 将来的にリスクレベルが変更される場合でも、ファイル構造の変更が不要
+- SDLC コマンドの大幅な変更を避けることで、開発コストと品質リスクを最小化
+- 各ファイルの簡素化により、低リスク Feature でも十分な文書量削減が見込める（目標 300 行以下）
+- `/sdlc-init` の原則「テンプレート構造の大幅な変更は避ける」に合致
+
+**Rejected Options**（却下された選択肢）:
+- Option A: 簡素化せずに維持するのは文書量削減の目標に反する
+- Option B: SDLC コマンドの大幅な変更が必要で、リスクレベル間の一貫性が失われる
 
 **Accepted Risks**（受け入れたリスク）:
-- TBD
+- 統合ほどの文書量削減効果はない（ただし、簡素化により目標は達成可能）
+- 低リスク Feature で 3 ファイル維持することによる若干の冗長性
 
 **Non-Negotiables**（譲れない点）:
 - リスクレベル間の一貫性を可能な限り保つこと
 - SDLC コマンドの大幅な変更を避けること
+- 各ファイルの役割を明確に保つこと
 
 ### Impact（影響）
 
-- **Technical**（技術的）: TBD
-- **Team**（チーム）: TBD
-- **Timeline**（タイムライン）: TBD
-- **Cost**（コスト）: TBD
+- **Technical**（技術的）: 低（テンプレートの簡素化のみ、構造変更なし）
+- **Team**（チーム）: 全リスクレベルで一貫した文書構造により、学習コストが低い
+- **Timeline**（タイムライン）: Decision 1 の Phase 2 に含まれる（追加工数なし）
+- **Cost**（コスト）: 低
 
 ### Follow-up Actions（フォローアップアクション）
 
-- [ ] 低リスク Feature の文書構成を確定
-- [ ] 必要に応じてテンプレート構造の変更
+- [x] 低リスク Feature の文書構成を確定（Option C を選択、3 ファイル維持）
+- [ ] 各ファイルのテンプレート簡素化により、300 行以下の目標を達成
+- [ ] 低リスク Feature の文書量測定と検証（Phase 3）
 
 ---
 
@@ -255,13 +290,13 @@ Issue では「低リスク Feature の文書統合を検討」という提案�
 
 ### All Confirmed Decisions（全確定済み決定）
 
-（まだ確定済みの決定なし）
+1. **テンプレート簡素化の実装順序**: Option A - Issue 提案の優先順位順 - 2025-12-29
+2. **test_plan.md の生成タイミング**: Option C - 簡素化して `/sdlc-init` 時に生成、詳細は `/sdlc-test` で追加 - 2025-12-29
+3. **低リスク Feature の文書統合**: Option C - 簡素化のみで統合はしない - 2025-12-29
 
 ### Pending Decisions（保留中の決定）
 
-1. **テンプレート簡素化の実装順序**: 検討中 - TBD
-2. **test_plan.md の生成タイミング**: 検討中 - TBD
-3. **低リスク Feature の文書統合**: 検討中 - TBD
+（すべての Decision が確定済み）
 
 ---
 
