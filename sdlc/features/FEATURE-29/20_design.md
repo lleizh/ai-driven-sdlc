@@ -2,7 +2,7 @@
 
 **Feature ID**: FEATURE-29  
 **Last Updated**: 2025-12-29  
-**Status**: DRAFT
+**Status**: FROZEN
 
 ## Overview（概要）
 
