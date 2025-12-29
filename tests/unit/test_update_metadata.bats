@@ -20,7 +20,7 @@ teardown() {
 # =====================================================
 
 @test "update-metadata.sh updates existing key" {
-    local feature_id="TEST-FEATURE-1"
+    local feature_id="FEATURE-991"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -38,7 +38,7 @@ teardown() {
 }
 
 @test "update-metadata.sh adds new key" {
-    local feature_id="TEST-FEATURE-2"
+    local feature_id="FEATURE-992"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -56,7 +56,7 @@ teardown() {
 }
 
 @test "update-metadata.sh updates LAST_UPDATED" {
-    local feature_id="TEST-FEATURE-3"
+    local feature_id="FEATURE-993"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -72,7 +72,7 @@ teardown() {
 }
 
 @test "update-metadata.sh handles values with special characters" {
-    local feature_id="TEST-FEATURE-4"
+    local feature_id="FEATURE-994"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -120,7 +120,7 @@ teardown() {
 
 @test "update-metadata.sh fails when .metadata is missing" {
     cd "$TEST_TEMP_DIR" || return 1
-    local feature_id="TEST-FEATURE-5"
+    local feature_id="FEATURE-995"
     mkdir -p "sdlc/features/${feature_id}"
 
     run "${SCRIPTS_DIR}/update-metadata.sh" "$feature_id" "STATUS" "implementing"
@@ -133,7 +133,7 @@ teardown() {
 # =====================================================
 
 @test "update-metadata.sh can update multiple keys in sequence" {
-    local feature_id="TEST-FEATURE-6"
+    local feature_id="FEATURE-996"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -155,7 +155,7 @@ teardown() {
 }
 
 @test "update-metadata.sh overwrites previous value correctly" {
-    local feature_id="TEST-FEATURE-7"
+    local feature_id="FEATURE-997"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1

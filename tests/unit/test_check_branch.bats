@@ -20,7 +20,7 @@ teardown() {
 # =====================================================
 
 @test "check-branch.sh succeeds on correct branch" {
-    local feature_id="TEST-FEATURE-1"
+    local feature_id="FEATURE-991"
     local test_repo="${TEST_TEMP_DIR}/test-repo"
 
     # テスト用のgitリポジトリとブランチを作成
@@ -54,7 +54,7 @@ teardown() {
 # =====================================================
 
 @test "check-branch.sh fails on wrong branch" {
-    local feature_id="TEST-FEATURE-2"
+    local feature_id="FEATURE-992"
     local test_repo="${TEST_TEMP_DIR}/test-repo"
 
     # 異なるブランチを作成
@@ -73,7 +73,7 @@ teardown() {
 }
 
 @test "check-branch.sh fails on main branch" {
-    local feature_id="TEST-FEATURE-3"
+    local feature_id="FEATURE-993"
     local test_repo="${TEST_TEMP_DIR}/test-repo"
 
     # mainブランチ（デフォルト）のまま

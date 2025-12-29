@@ -80,7 +80,7 @@ teardown() {
 
 @test "check_feature_exists succeeds for existing feature" {
     # テスト用のFeatureを作成
-    local feature_id="TEST-FEATURE-1"
+    local feature_id="FEATURE-991"
     local feature_dir=$(create_test_feature "$feature_id")
 
     # SDLCディレクトリを一時的に変更
@@ -101,7 +101,7 @@ teardown() {
 
 @test "check_feature_exists fails when .metadata is missing" {
     cd "$TEST_TEMP_DIR" || return 1
-    local feature_id="TEST-FEATURE-2"
+    local feature_id="FEATURE-992"
     mkdir -p "sdlc/features/${feature_id}"
 
     run check_feature_exists "$feature_id"
@@ -137,7 +137,7 @@ teardown() {
 # =====================================================
 
 @test "get_metadata_value returns correct value" {
-    local feature_id="TEST-FEATURE-3"
+    local feature_id="FEATURE-993"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
@@ -148,7 +148,7 @@ teardown() {
 }
 
 @test "get_metadata_value fails for non-existing key" {
-    local feature_id="TEST-FEATURE-4"
+    local feature_id="FEATURE-994"
     local feature_dir=$(create_test_feature "$feature_id")
 
     cd "$TEST_TEMP_DIR" || return 1
