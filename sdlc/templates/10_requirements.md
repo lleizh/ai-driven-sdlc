@@ -20,98 +20,20 @@
 - [ ] 
 - [ ] 
 
+---
+
+### For High Risk（高リスクの場合は以下も記入）
+
 ## Non-Functional Requirements（非機能要件）
+<!-- パフォーマンス、セキュリティ、スケーラビリティ、信頼性、可観測性など -->
+- 
+- 
 
-### Performance（パフォーマンス）
-<!-- パフォーマンス要件 -->
-- Response time（応答時間）: 
-- Throughput（スループット）: 
-- Resource usage（リソース使用量）: 
+---
 
-### Security（セキュリティ）
-<!-- セキュリティ要件 -->
-- Authentication（認証）: 
-- Authorization（認可）: 
-- Data protection（データ保護）: 
-
-### Scalability（スケーラビリティ）
-<!-- スケーラビリティ要件 -->
-- Expected load（想定負荷）: 
-- Growth projection（成長予測）: 
-
-### Reliability（信頼性）
-<!-- 信頼性要件 -->
-- Availability（可用性）: 
-- Error rate（エラー率）: 
-- Recovery time（復旧時間）: 
-
-### Observability（可観測性）
-<!-- 監視・運用要件 -->
-- Logging（ログ）: 
-- Metrics（メトリクス）: 
-- Alerting（アラート）: 
-
-## User Stories（ユーザーストーリー）
-<!-- ユーザーストーリー形式で記述 -->
-
-### Story 1: {タイトル}
-**As a**（〜として） {user type}  
-**I want**（〜したい） {goal}  
-**So that**（〜するために） {benefit}
-
-**Acceptance Criteria**（受入基準）:
-- [ ] 
-- [ ] 
-
-### Story 2: {タイトル}
-**As a**（〜として） {user type}  
-**I want**（〜したい） {goal}  
-**So that**（〜するために） {benefit}
-
-**Acceptance Criteria**（受入基準）:
-- [ ] 
-- [ ] 
-
-## API Specification（API仕様）
-<!-- API の仕様が必要な場合 -->
-
-### Endpoint: {METHOD} {PATH}
-**Description**（説明）: 
-
-**Request**（リクエスト）:
-```json
-{
-  "example": "request"
-}
-```
-
-**Response**（レスポンス）:
-```json
-{
-  "example": "response"
-}
-```
-
-**Error Codes**（エラーコード）:
-- 400: 
-- 404: 
-- 500: 
-
-## Data Model（データモデル）
-<!-- データモデルの変更がある場合 -->
-
-```
-Entity: {Name}
-- field1: type
-- field2: type
-```
+### Optional（必要に応じて記入）
 
 ## Dependencies（依存関係）
 <!-- 他のシステム、サービス、チームへの依存 -->
-- 
-- 
-
-## Assumptions（前提条件）
-<!-- 前提条件 -->
 - 
 - 

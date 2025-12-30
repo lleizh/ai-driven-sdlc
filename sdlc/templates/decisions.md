@@ -79,58 +79,6 @@
 
 ---
 
-## Decision 2: {トピック}
-
-**Status**: PENDING | CONFIRMED | REVISED  
-**Date**（日付）: {DATE}  
-**Decision Maker**（意思決定者）: {NAME}
-
-### Context（背景）
-
-
-### Options Considered（検討した選択肢）
-
-#### Option A: {名前}
-**Pros**（長所）:
-- 
-
-**Cons**（短所）:
-- 
-
-**Cost/Effort**（コスト・工数）: 
-
-#### Option B: {名前}
-**Pros**（長所）:
-- 
-
-**Cons**（短所）:
-- 
-
-**Cost/Effort**（コスト・工数）: 
-
-### Decision（決定）
-**Chosen Option**（選択した選択肢）: {Option Name}
-
-**Rationale**（理由）:
-
-
-**Accepted Risks**（受け入れたリスク）:
-- 
-
-**Non-Negotiables**（譲れない点）:
-- 
-
-### Impact（影響）
-- **Technical**（技術的）: 
-- **Team**（チーム）: 
-- **Timeline**（タイムライン）: 
-- **Cost**（コスト）: 
-
-### Follow-up Actions（フォローアップアクション）
-- [ ] 
-
----
-
 ## Decision History（決定履歴）
 
 ### Revisions（改訂）
@@ -144,20 +92,4 @@
 **Impact of Change**（変更の影響）:
 
 
----
-
-## Quick Reference（クイックリファレンス）
-
-### All Confirmed Decisions（全確定済み決定）
-1. **{トピック}**: {Chosen Option} - {Date}
-2. **{トピック}**: {Chosen Option} - {Date}
-
-### Pending Decisions（保留中の決定）
-1. **{トピック}**: Awaiting {what} - {Owner}
-2. **{トピック}**: Awaiting {what} - {Owner}
-
----
-
-## Notes（備考）
-<!-- メモや補足情報 -->
 

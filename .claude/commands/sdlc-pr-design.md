@@ -126,23 +126,12 @@ gh pr create \
   --base develop
 ```
 
-### 8. 完了メッセージ
+## 完了後の次のステップ
 
-```
-✅ Design Review PR を作成しました
-
-📋 PR 情報:
-- URL: {GitHub PR URL}
-- Branch: feature/{FEATURE_ID}
-- Label: design-review
-- Status: design
-
-次のステップ:
 - チームメンバーをレビュアーに追加
 - Decisions を議論・確定
 - decisions.md の Status を CONFIRMED に更新
-- PR をマージ
-```
+- approve されたらマージ
 
 ---
 

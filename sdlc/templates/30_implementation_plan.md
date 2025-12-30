@@ -2,149 +2,170 @@
 
 **Feature ID**: {FEATURE_ID}  
 **Last Updated**: {DATE}  
-**Estimated Effort**（見積工数）: {EFFORT}
+**Based on**: decisions.md (CONFIRMED)
+
+---
 
 ## Implementation Overview（実装概要）
-<!-- 実装の全体方針を説明 -->
+<!-- Chosen Options に基づく実装の全体方針 -->
+
+
+**Estimated Effort**（見積工数）: {総時間}  
+**Total Tasks**（総タスク数）: {数}
+
+---
 
 ## Phase Breakdown（フェーズ分解）
 
 ### Phase 1: {名前}
 **Goal**（目標）: 
-**Duration**（期間）: 
-**Dependencies**（依存関係）: 
 
 **Tasks**（タスク）:
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
+- [ ] Task 1 - {具体的なファイル名・関数名}
+- [ ] Task 2 - {具体的なファイル名・関数名}
+- [ ] ⚠️ Task 3 (High Risk) - {具体的な内容と軽減策}
 
-**Deliverables**（成果物）:
-- 
-- 
+**Files**（関連ファイル）:
+- `path/to/file1.go` - {変更内容}
+- `path/to/file2.go` - {変更内容}
+
+**Duration**（見積）: {時間}
+
+---
 
 ### Phase 2: {名前}
 **Goal**（目標）: 
-**Duration**（期間）: 
-**Dependencies**（依存関係）: 
 
 **Tasks**（タスク）:
-- [ ] Task 1
-- [ ] Task 2
-- [ ] Task 3
+- [ ] Task 1 - {具体的な内容}
+- [ ] Task 2 - {具体的な内容}
 
-**Deliverables**（成果物）:
-- 
-- 
+**Files**（関連ファイル）:
+- `path/to/file3.go` - {変更内容}
 
-## Technical Tasks（技術タスク）
+**Duration**（見積）: {時間}
 
-### Backend（バックエンド）
-- [ ] 
-- [ ] 
+---
 
-### Frontend（フロントエンド）
-- [ ] 
-- [ ] 
+### Phase 3: Testing & Documentation
+**Goal**（目標）: テストと文書化を完了
 
-### Database（データベース）
-- [ ] 
-- [ ] 
+**Tasks**（タスク）:
+- [ ] Unit tests for {component}
+- [ ] Integration tests for {feature}
+- [ ] Update README.md
+- [ ] API documentation
 
-### Infrastructure（インフラ）
-- [ ] 
-- [ ] 
+**Duration**（見積）: {時間}
 
-### Testing（テスト）
-- [ ] 
-- [ ] 
+---
 
-### Documentation（ドキュメント）
-- [ ] 
-- [ ] 
+## Technical Implementation Details（技術実装詳細）
 
-## File Changes（ファイル変更）
-
-### New Files（新規ファイル）
+### Backend Changes（バックエンド変更）
 ```
-path/to/new/file1.go
-path/to/new/file2.go
+新規ファイル:
+- path/to/new/handler.go - {目的}
+- path/to/new/service.go - {目的}
+
+変更ファイル:
+- path/to/existing/router.go - {変更内容}
+- path/to/existing/config.go - {変更内容}
 ```
 
-### Modified Files（変更ファイル）
+### Frontend Changes（フロントエンド変更）
 ```
-path/to/existing/file1.go - 新しい関数を追加
-path/to/existing/file2.go - ロジックをリファクタリング
+新規ファイル:
+- path/to/new/component.tsx - {目的}
+
+変更ファイル:
+- path/to/existing/page.tsx - {変更内容}
 ```
 
-### Deleted Files（削除ファイル）
+### Database Changes（データベース変更）
 ```
-path/to/deprecated/file.go
+マイグレーション:
+- 20XX-XX-XX-create-table.sql - {テーブル作成}
+- 20XX-XX-XX-add-column.sql - {カラム追加}
 ```
+
+---
 
 ## Dependencies（依存関係）
 
 ### External Dependencies（外部依存）
-<!-- 新しいライブラリやサービスの依存 -->
-- Package: {name}, Version: {version}, Reason: 
-- Service: {name}, Purpose: 
+<!-- 新しいライブラリやサービス -->
+- `package-name@version` - {使用目的}
 
 ### Internal Dependencies（内部依存）
 <!-- 他のチームや機能への依存 -->
-- Team: {name}, Dependency: 
-- Feature: {ID}, Dependency: 
+- {Team/Feature} - {依存内容}
 
-## Migration Plan（マイグレーション計画）
-<!-- データマイグレーションやデプロイ手順 -->
-
-### Pre-deployment（デプロイ前）
-1. 
-2. 
-
-### Deployment Steps（デプロイ手順）
-1. 
-2. 
-
-### Post-deployment（デプロイ後）
-1. 
-2. 
-
-### Rollback Plan（ロールバック計画）
-1. 
-2. 
+---
 
 ## Testing Strategy（テスト戦略）
-<!-- テスト戦略の概要 -->
-- Unit tests（ユニットテスト）: 
-- Integration tests（統合テスト）: 
-- E2E tests（E2Eテスト）: 
-- Performance tests（パフォーマンステスト）: 
 
-## Risk Mitigation（リスク軽減）
-<!-- 実装中のリスクと対策 -->
-| リスク | 影響度 | 軽減策 |
-|--------|--------|--------|
-| | High/Medium/Low | |
-| | High/Medium/Low | |
+### Unit Tests（ユニットテスト）
+- [ ] `TestFunctionName` - {テスト内容}
+- [ ] `TestAnotherFunction` - {テスト内容}
+
+**Coverage Goal**（カバレッジ目標）: {XX%}
+
+### Integration Tests（統合テスト）
+- [ ] {テストシナリオ1}
+- [ ] {テストシナリオ2}
+
+### E2E Tests（E2Eテスト）
+<!-- High Risk の場合のみ -->
+- [ ] {ユーザーシナリオ1}
+- [ ] {ユーザーシナリオ2}
+
+---
+
+## Deployment Plan（デプロイ計画）
+
+### Pre-deployment Checklist（デプロイ前チェックリスト）
+- [ ] All tests passing
+- [ ] Code review approved
+- [ ] Database migration tested
+- [ ] Configuration updated
+
+### Deployment Steps（デプロイ手順）
+1. {ステップ1}
+2. {ステップ2}
+3. {ステップ3}
+
+### Rollback Plan（ロールバック計画）
+1. {ロールバック手順1}
+2. {ロールバック手順2}
+
+**Rollback Time**（ロールバック所要時間）: {時間}
+
+---
+
+## High Risk Items（高リスク項目）
+<!-- risks.md の High/Medium Risk に対応 -->
+
+### Risk R001: {リスクタイトル}
+**Mitigation in Implementation**（実装での軽減策）:
+- Phase {N}, Task {M} で {軽減策の内容}
+
+**Monitoring**（監視）:
+- {監視項目}
+
+---
 
 ## Success Criteria（成功基準）
-<!-- 実装完了の判定基準 -->
+<!-- この実装計画の完了条件 -->
+- [ ] All tasks completed（全タスク完了）
 - [ ] All tests passing（全テスト成功）
 - [ ] Code review approved（コードレビュー承認）
 - [ ] Documentation updated（ドキュメント更新完了）
-- [ ] Performance benchmarks met（パフォーマンス基準達成）
-- [ ] Security review passed（セキュリティレビュー合格）
+- [ ] {Feature-specific criterion}
 
-## Timeline（タイムライン）
-<!-- タイムライン（参考） -->
-```
-Week 1: Phase 1
-Week 2: Phase 2
-Week 3: Testing & Review
-Week 4: Deployment
-```
+---
 
 ## Notes（備考）
-<!-- その他の注意事項 -->
+<!-- 実装上の注意事項 -->
 - 
 - 
