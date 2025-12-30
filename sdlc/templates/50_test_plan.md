@@ -2,272 +2,235 @@
 
 **Feature ID**: {FEATURE_ID}  
 **Last Updated**: {DATE}  
-**Test Owner**（テスト責任者）: {NAME}
+**Test Owner**（テスト責任者）: {NAME}  
+**Risk Level**: LOW | MEDIUM | HIGH
 
-## Test Strategy（テスト戦略）
-<!-- テスト戦略の概要 -->
+---
+
+## Test Strategy Overview（テスト戦略概要）
+
+**Testing Approach**（テストアプローチ）:
+<!-- どのような方針でテストを実施するか -->
+
 
 **Testing Levels**（テストレベル）:
-- Unit Testing（ユニットテスト）: {coverage target}
-- Integration Testing（統合テスト）: {scope}
-- E2E Testing（E2Eテスト）: {scope}
-- Performance Testing（パフォーマンステスト）: {required/optional}
-- Security Testing（セキュリティテスト）: {required/optional}
+- ✅ Unit Testing - {coverage target, e.g., ≥80%}
+- ✅ Integration Testing - {scope}
+- ⚠️ E2E Testing - {required for Medium/High Risk}
+- ⚠️ Performance Testing - {required for High Risk}
+- ⚠️ Security Testing - {required for High Risk}
+
+---
 
 ## Test Scope（テスト範囲）
 
-### In Scope（範囲内）
+### In Scope（テスト対象）
 - 
 - 
 
-### Out of Scope（範囲外）
+### Out of Scope（テスト対象外）
 - 
 - 
+
+### Key Test Areas（重点テスト領域）
+<!-- 特に重点的にテストすべき領域 -->
+- 
+- 
+
+---
 
 ## Unit Tests（ユニットテスト）
 
-### Component: {名前}
-**File**: `path/to/test/file_test.go`
+### Target Coverage（目標カバレッジ）
+- **Overall**: ≥ {XX%}
+- **Critical Functions**: 100%
 
-#### Test Case 1: {名前}
-- **Description**（説明）: 
-- **Input**（入力）: 
-- **Expected Output**（期待出力）: 
-- **Edge Cases**（エッジケース）: 
+### Test Cases（テストケース）
+<!-- /sdlc-test コマンドで自動生成されます -->
 
-#### Test Case 2: {名前}
-- **Description**（説明）: 
-- **Input**（入力）: 
-- **Expected Output**（期待出力）: 
-- **Edge Cases**（エッジケース）: 
+**Example**（例）:
+```
+TestFunctionName:
+- [ ] 正常系: {説明}
+- [ ] 異常系: {説明}
+- [ ] 境界値: {説明}
+```
 
-### Component: {名前}
-**File**: `path/to/test/file_test.go`
-
-#### Test Case 1: {名前}
-- **Description**（説明）: 
-- **Input**（入力）: 
-- **Expected Output**（期待出力）: 
-- **Edge Cases**（エッジケース）: 
+---
 
 ## Integration Tests（統合テスト）
 
-### Integration 1: {名前}
-**Scope**（範囲）: Components A + B + Database
+### Test Scenarios（テストシナリオ）
+<!-- 主要な統合テストシナリオ -->
 
-#### Test Case 1: {名前}
-- **Description**（説明）: 
-- **Setup**（セットアップ）: 
-- **Steps**（手順）: 
-  1. 
-  2. 
-- **Expected Result**（期待結果）: 
-- **Cleanup**（クリーンアップ）: 
+#### Scenario 1: {シナリオ名}
+**Description**（説明）:
 
-#### Test Case 2: {名前}
-- **Description**（説明）: 
-- **Setup**（セットアップ）: 
-- **Steps**（手順）: 
-  1. 
-  2. 
-- **Expected Result**（期待結果）: 
-- **Cleanup**（クリーンアップ）: 
+**Steps**（手順）:
+1. 
+2. 
+3. 
+
+**Expected Result**（期待結果）:
+
+**Status**: ⬜ Not Started | 🟡 In Progress | ✅ Passed | ❌ Failed
+
+---
+
+#### Scenario 2: {シナリオ名}
+**Description**（説明）:
+
+**Steps**（手順）:
+1. 
+2. 
+
+**Expected Result**（期待結果）:
+
+**Status**: ⬜ Not Started | 🟡 In Progress | ✅ Passed | ❌ Failed
+
+---
 
 ## E2E Tests（E2Eテスト）
+<!-- Medium/High Risk の場合のみ必須 -->
 
-### User Flow 1: {名前}
-**Scenario**（シナリオ）: 
+### User Scenarios（ユーザーシナリオ）
 
-#### Test Case 1: Happy Path（正常系）
-- **User Actions**（ユーザー操作）: 
-  1. 
-  2. 
-- **Expected Behavior**（期待動作）: 
-- **Verification Points**（検証ポイント）: 
+#### E2E-1: {シナリオ名}
+**User Story**（ユーザーストーリー）:
 
-#### Test Case 2: Error Path（異常系）
-- **User Actions**（ユーザー操作）: 
-  1. 
-  2. 
-- **Expected Behavior**（期待動作）: 
-- **Verification Points**（検証ポイント）: 
+**Steps**（手順）:
+1. 
+2. 
+3. 
 
-## API Tests（APIテスト）
+**Expected Result**（期待結果）:
 
-### Endpoint: {METHOD} {PATH}
+**Status**: ⬜ Not Started | 🟡 In Progress | ✅ Passed | ❌ Failed
 
-#### Test Case 1: Valid Request（正常なリクエスト）
-- **Request**（リクエスト）: 
-```json
-{
-  "example": "request"
-}
-```
-- **Expected Response**（期待レスポンス）: Status 200
-```json
-{
-  "example": "response"
-}
-```
-
-#### Test Case 2: Invalid Request（不正なリクエスト）
-- **Request**（リクエスト）: 
-```json
-{
-  "invalid": "data"
-}
-```
-- **Expected Response**（期待レスポンス）: Status 400
-```json
-{
-  "error": "message"
-}
-```
-
-#### Test Case 3: Unauthorized（未認証）
-- **Request**（リクエスト）: No auth token
-- **Expected Response**（期待レスポンス）: Status 401
+---
 
 ## Performance Tests（パフォーマンステスト）
+<!-- High Risk の場合のみ必須 -->
 
-### Load Test 1: {名前}
-- **Objective**（目的）: 
-- **Load Profile**（負荷プロファイル）: {users/sec, duration}
-- **Success Criteria**（成功基準）: 
-  - Response time < {ms} at p95
-  - Error rate < {%}
-  - Throughput > {req/sec}
+### Performance Criteria（パフォーマンス基準）
+- **Response Time**: {目標値, e.g., <200ms}
+- **Throughput**: {目標値, e.g., >1000 req/s}
+- **Resource Usage**: {目標値, e.g., CPU <50%, Memory <1GB}
 
-### Stress Test 1: {名前}
-- **Objective**（目的）: 
-- **Load Profile**（負荷プロファイル）: {ramp-up strategy}
-- **Success Criteria**（成功基準）: 
-  - System remains stable up to {load}（システムは{load}まで安定）
-  - Graceful degradation after {load}（{load}以降は段階的な性能低下）
+### Test Cases（テストケース）
+- [ ] Load Test: {説明}
+- [ ] Stress Test: {説明}
+- [ ] Spike Test: {説明}
+
+---
 
 ## Security Tests（セキュリティテスト）
+<!-- High Risk の場合のみ必須 -->
 
-### Test 1: Authentication（認証）
-- [ ] Test invalid credentials（無効な認証情報のテスト）
-- [ ] Test expired tokens（期限切れトークンのテスト）
-- [ ] Test token refresh（トークンリフレッシュのテスト）
+### Security Checklist（セキュリティチェックリスト）
+- [ ] Authentication/Authorization testing
+- [ ] Input validation testing
+- [ ] SQL Injection testing
+- [ ] XSS testing
+- [ ] CSRF protection testing
+- [ ] Sensitive data exposure testing
 
-### Test 2: Authorization（認可）
-- [ ] Test unauthorized access（未認可アクセスのテスト）
-- [ ] Test role-based access（ロールベースアクセスのテスト）
-- [ ] Test resource ownership（リソース所有権のテスト）
-
-### Test 3: Input Validation（入力検証）
-- [ ] Test SQL injection（SQLインジェクションのテスト）
-- [ ] Test XSS
-- [ ] Test command injection（コマンドインジェクションのテスト）
-
-### Test 4: Rate Limiting（レート制限）
-- [ ] Test rate limit enforcement（レート制限の実施テスト）
-- [ ] Test rate limit bypass attempts（レート制限回避試行のテスト）
-
-## Data Tests（データテスト）
-
-### Test 1: Data Migration（データマイグレーション）
-- **Scenario**（シナリオ）: 
-- **Test Data**（テストデータ）: 
-- **Verification**（検証）: 
-  - [ ] Data integrity（データ整合性）
-  - [ ] Data completeness（データ完全性）
-  - [ ] Performance impact（パフォーマンス影響）
-
-### Test 2: Data Validation（データ検証）
-- **Scenario**（シナリオ）: 
-- **Test Cases**（テストケース）: 
-  - Valid data formats（有効なデータ形式）
-  - Invalid data formats（無効なデータ形式）
-  - Boundary values（境界値）
-
-## Regression Tests（リグレッションテスト）
-<!-- 既存機能への影響確認 -->
-- [ ] Test 1: {existing feature}
-- [ ] Test 2: {existing feature}
-- [ ] Test 3: {existing feature}
+---
 
 ## Test Environment（テスト環境）
 
-### Setup Requirements（セットアップ要件）
-- Database（データベース）: 
-- External Services（外部サービス）: 
-- Test Data（テストデータ）: 
-- Configuration（設定）: 
+### Environment Setup（環境設定）
+- **Database**: {database type and version}
+- **External Services**: {mock/staging services}
+- **Test Data**: {test data requirements}
+- **Configuration**: {test-specific config}
 
-### Test Data（テストデータ）
-```
-User 1: {credentials}
-User 2: {credentials}
-Test Dataset: {location}
-```
+### Dependencies（依存関係）
+- 
+- 
+
+---
+
+## Risk-Based Testing（リスクベーステスト）
+<!-- risks.md の High/Medium Risk に対応 -->
+
+| Risk ID | リスク領域 | 優先度 | テスト種別 | ステータス |
+|---------|-----------|--------|-----------|-----------|
+| R001 | | High | Unit + Integration + E2E | |
+| R002 | | Medium | Unit + Integration | |
+
+---
 
 ## Test Execution（テスト実行）
 
-### Automated Tests（自動テスト）
-- **Command**（コマンド）: `make test`
-- **CI/CD Integration**: {pipeline name}
-- **Coverage Threshold**（カバレッジ閾値）: {percentage}
+### Execution Plan（実行計画）
+1. **Phase 1**: Unit Tests
+   - Duration: {時間}
+   - Owner: {担当者}
 
-### Manual Tests（手動テスト）
-- **Test Cases**（テストケース）: {list or link}
-- **Tester**（テスター）: {name}
-- **Environment**（環境）: {staging/qa}
+2. **Phase 2**: Integration Tests
+   - Duration: {時間}
+   - Owner: {担当者}
 
-## Test Coverage（テストカバレッジ）
+3. **Phase 3**: E2E Tests (if applicable)
+   - Duration: {時間}
+   - Owner: {担当者}
 
-### Coverage Targets（カバレッジ目標）
-- Unit Test Coverage（ユニットテストカバレッジ）: ≥ {percentage}
-- Integration Test Coverage（統合テストカバレッジ）: ≥ {percentage}
-- Critical Paths（クリティカルパス）: 100%
-
-### Coverage Reports（カバレッジレポート）
-- **Tool**（ツール）: {coverage tool}
-- **Report Location**（レポート場所）: {path or url}
-
-## Risk-Based Testing（リスクベーステスト）
-<!-- リスクに基づくテスト優先度 -->
-| リスク領域 | 優先度 | テスト種別 | カバレッジ |
-|-----------|--------|-----------|----------|
-| | High | | |
-| | Medium | | |
-| | Low | | |
-
-## Test Schedule（テストスケジュール）
-<!-- テストのスケジュール -->
+### Test Schedule（テストスケジュール）
 ```
-Week 1: Unit tests（ユニットテスト）
-Week 2: Integration tests（統合テスト）
-Week 3: E2E tests（E2Eテスト）
-Week 4: Performance & Security tests（パフォーマンス・セキュリティテスト）
+Week 1: Unit Tests
+Week 2: Integration Tests
+Week 3: E2E + Performance Tests (if applicable)
 ```
+
+---
 
 ## Exit Criteria（終了基準）
-<!-- テスト完了の基準 -->
-- [ ] All planned tests executed（全計画テストが実行された）
-- [ ] Coverage targets met（カバレッジ目標を達成）
+
+### Mandatory（必須）
+- [ ] All planned tests executed（全計画テスト実行完了）
+- [ ] Unit test coverage ≥ {target}%
+- [ ] Integration test coverage ≥ {target}%
 - [ ] No critical bugs open（クリティカルバグなし）
-- [ ] Performance benchmarks passed（パフォーマンス基準を通過）
-- [ ] Security tests passed（セキュリティテストを通過）
+- [ ] All High priority bugs fixed（高優先度バグ修正完了）
 
-## Test Results（テスト結果）
-<!-- テスト結果記録用 -->
+### Risk-Level Specific（リスクレベル別）
 
-### Execution Summary（実行サマリー）
-- **Date**（日付）: 
-- **Total Tests**（総テスト数）: 
-- **Passed**（成功）: 
-- **Failed**（失敗）: 
-- **Skipped**（スキップ）: 
-- **Coverage**（カバレッジ）: 
+**Medium/High Risk**:
+- [ ] E2E tests passed（E2Eテスト成功）
+- [ ] No high/medium bugs open（高・中バグなし）
 
-### Defects Found（発見された欠陥）
-| ID | 重要度 | 説明 | ステータス |
-|----|--------|------|-----------|
-| | | | |
+**High Risk**:
+- [ ] Performance tests passed（パフォーマンステスト成功）
+- [ ] Security tests passed（セキュリティテスト成功）
+- [ ] Load testing completed（負荷テスト完了）
+
+---
+
+## Test Results Summary（テスト結果サマリー）
+<!-- /sdlc-test コマンド実行後に更新 -->
+
+| テストタイプ | 実行数 | 成功 | 失敗 | カバレッジ |
+|-------------|-------|------|------|-----------|
+| Unit | | | | |
+| Integration | | | | |
+| E2E | | | | |
+| Performance | | | | |
+
+**Test Execution Date**（実行日）: {DATE}
+
+---
+
+## Known Issues（既知の問題）
+<!-- テスト中に発見された問題 -->
+
+| Issue ID | 説明 | 優先度 | ステータス | 担当者 |
+|----------|------|--------|-----------|--------|
+| | | Critical/High/Medium/Low | Open/In Progress/Fixed | |
+
+---
 
 ## Notes（備考）
-<!-- その他のメモ -->
-
+<!-- テスト実施に関する補足情報 -->
+- 
+- 

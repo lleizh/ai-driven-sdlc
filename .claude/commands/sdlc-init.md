@@ -48,16 +48,14 @@ mkdir -p sdlc/features/{FEATURE_ID}
 
 `.metadata` を作成：
 ```bash
-cat > "sdlc/features/${FEATURE_ID}/.metadata" << EOF
-FEATURE_ID=${FEATURE_ID}
+echo "FEATURE_ID=${FEATURE_ID}
 RISK_LEVEL=${RISK_LEVEL}
 STATUS=planning
 CREATED_DATE=$(date +%Y-%m-%d)
 DECISION_STATUS=pending
 ISSUE_URL=${ISSUE_URL}
 BRANCH=feature/${FEATURE_ID}
-LAST_UPDATED=$(date +%Y-%m-%d)
-EOF
+LAST_UPDATED=$(date +%Y-%m-%d)" > "sdlc/features/${FEATURE_ID}/.metadata"
 ```
 
 ### 6. テンプレート読取 & 文書生成

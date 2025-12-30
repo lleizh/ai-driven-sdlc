@@ -102,20 +102,12 @@ Related: #${ISSUE_NUMBER}"
 git push origin "feature/${FEATURE_ID}"
 ```
 
-### 7. 完了メッセージ
+---
 
-```
-✅ Implementation Plan を生成しました
+## 完了後の次のステップ
 
-📋 計画情報:
-- ファイル: sdlc/features/{FEATURE_ID}/30_implementation_plan.md
-- Phases: {Phase数}
-- Tasks: {タスク数}
-
-次のステップ:
 1. Implementation Plan を確認
 2. /sdlc-coding {FEATURE_ID} で実装を開始
-```
 
 ---
 
