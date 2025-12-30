@@ -181,15 +181,15 @@ jobs:
       - name: Extract FEATURE_ID
         if: steps.check-config.outputs.skip == 'false'
         id: extract
+        env:
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
         run: |
           echo "=========================================="
           echo "Label 'sdlc:track' removed from Issue #${{ github.event.issue.number }}"
           echo "=========================================="
 
           # Extract FEATURE_ID from Issue title or body
-          ISSUE_TITLE="${{ github.event.issue.title }}"
-          ISSUE_BODY="${{ github.event.issue.body }}"
-
           FEATURE_ID=$(echo "$ISSUE_TITLE $ISSUE_BODY" | grep -oP 'FEATURE-\d+' | head -1 || echo "")
 
           if [[ -z "$FEATURE_ID" ]]; then
