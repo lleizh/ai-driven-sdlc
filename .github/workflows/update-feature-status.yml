@@ -25,21 +25,11 @@ jobs:
         run: |
           # 最新のコミット情報を取得
           COMMIT_SHA="${{ github.sha }}"
-          COMMITTER=$(git log -1 --pretty=%cn "$COMMIT_SHA")
 
           echo "Commit SHA: $COMMIT_SHA"
-          echo "Committer: $COMMITTER"
-
-          # Committer が "GitHub" でない場合はスキップ（PR マージではない）
-          if [[ "$COMMITTER" != "GitHub" ]]; then
-            echo "⚠️ Committer が 'GitHub' ではありません。PR マージではないためスキップします。"
-            echo "is_merge=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "✓ Committer が 'GitHub' です。PR マージの可能性があります。"
 
           # GitHub API を使用して commit に関連する PR を取得
+          # これはマージ方式（Merge/Squash/Rebase）に関係なく動作します
           echo "GitHub API で PR 情報を取得中..."
           PR_DATA=$(gh api "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
             --jq '.[0] | {number: .number, head_ref: .head.ref}' 2>&1)
