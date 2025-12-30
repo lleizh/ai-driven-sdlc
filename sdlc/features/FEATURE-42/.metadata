@@ -1,0 +1,8 @@
+FEATURE_ID=FEATURE-42
+RISK_LEVEL=medium
+STATUS=planning
+CREATED_DATE=2025-12-30
+DECISION_STATUS=pending
+ISSUE_URL=https://github.com/lleizh/ai-driven-sdlc/issues/42
+BRANCH=feature/FEATURE-42
+LAST_UPDATED=2025-12-30
