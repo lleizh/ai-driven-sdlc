@@ -120,6 +120,11 @@ FILES_TO_COPY=()
 # Issue template
 FILES_TO_COPY+=(".github/ISSUE_TEMPLATE/feature.md")
 
+# GitHub Workflows
+FILES_TO_COPY+=(".github/workflows/sdlc-auto-add-issues.yml")
+FILES_TO_COPY+=(".github/workflows/sdlc-sync-projects.yml")
+FILES_TO_COPY+=(".github/workflows/sdlc-update-feature-status.yml")
+
 # Claude Code commands (list all sdlc-*.md files)
 for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
     if [[ -f "$cmd_file" ]]; then
@@ -208,6 +213,11 @@ print_header "インストール中"
 
 # Install Issue template
 install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TEMPLATE/feature.md"
+
+# Install GitHub Workflows
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-auto-add-issues.yml" ".github/workflows/sdlc-auto-add-issues.yml"
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-sync-projects.yml" ".github/workflows/sdlc-sync-projects.yml"
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-update-feature-status.yml" ".github/workflows/sdlc-update-feature-status.yml"
 
 # Install Claude Code commands (each file individually)
 for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
