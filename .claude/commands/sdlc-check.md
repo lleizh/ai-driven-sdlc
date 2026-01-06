@@ -39,7 +39,7 @@ scripts/check-branch.sh "$FEATURE_ID" || exit 1
 **コード変更を確認**：
 ```bash
 # 現在の git diff を取得
-CODE_CHANGES=$(git diff main...HEAD)
+CODE_CHANGES=$(git diff develop...HEAD)
 
 # 変更がない場合は警告
 if [[ -z "$CODE_CHANGES" ]]; then
