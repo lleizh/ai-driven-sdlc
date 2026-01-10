@@ -64,6 +64,8 @@ load_metadata() {
             REVISION_COUNT) REVISION_COUNT="$value" ;;
             LAST_UPDATED) LAST_UPDATED="$value" ;;
             LAST_SYNC) LAST_SYNC="$value" ;;
+            PR_NUMBER) PR_NUMBER="$value" ;;
+            PR_URL) PR_URL="$value" ;;
             REVISION_*)
                 # Handle REVISION_N_DATE, REVISION_N_MAKER, etc.
                 eval "$key=\"\$value\""
