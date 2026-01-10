@@ -177,6 +177,9 @@ SDLC CLI v${VERSION} - 管理ツール
   list                              全Featureの一覧表示
 
   status <feature-id>               Featureのステータス表示
+  status <feature-id> <status>      Featureのステータスを変更
+                                    status: planning|design|implementing|
+                                            testing|review|completed|blocked
 
 状態管理:
   decision <feature-id> <status>    Decisionステータスを変更
@@ -783,6 +786,80 @@ update_decision() {
     if [[ "$decision_status" == "confirmed" ]]; then
         print_success "実装を開始できます！"
     fi
+}
+
+# Update status
+update_status() {
+    local feature_id=$1
+    local status=$2
+
+    if [[ -z "$feature_id" ]] || [[ -z "$status" ]]; then
+        print_error "Feature IDとステータスが必要です"
+        echo "使用方法: sdlc-cli status <feature-id> <planning|design|implementing|testing|review|completed|blocked>"
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
+    fi
+
+    if [[ ! "$status" =~ ^(planning|design|implementing|testing|review|completed|blocked)$ ]]; then
+        print_error "ステータスは planning, design, implementing, testing, review, completed, blocked のいずれかです"
+        return 1
+    fi
+
+    local feature_dir="${FEATURES_DIR}/${feature_id}"
+
+    if [[ ! -d "$feature_dir" ]]; then
+        print_error "Feature ${feature_id} が見つかりません"
+        return 1
+    fi
+
+    # Load metadata to get old status
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
+    local old_status=$STATUS
+
+    # Use safe sed replacement
+    if ! safe_sed_inplace "s/STATUS=.*/STATUS=${status}/" "${feature_dir}/.metadata"; then
+        print_error "Failed to update .metadata"
+        return 1
+    fi
+
+    # Update LAST_UPDATED
+    local current_date=$(date +%Y-%m-%d)
+    if ! safe_sed_inplace "s/LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" "${feature_dir}/.metadata"; then
+        print_warning "Failed to update LAST_UPDATED"
+    fi
+
+    print_success "Feature ${feature_id} のステータスを ${old_status} → ${status} に更新"
+
+    # Provide helpful tips based on status
+    case "$status" in
+        planning)
+            print_info "次のステップ: /sdlc-decision でDecisionを確定してください"
+            ;;
+        design)
+            print_info "次のステップ: Design PRを作成してレビューを受けてください"
+            ;;
+        implementing)
+            print_info "次のステップ: 実装を進めてください"
+            ;;
+        testing)
+            print_info "次のステップ: /sdlc-test でテストを実行してください"
+            ;;
+        review)
+            print_info "次のステップ: Code Review PRを作成してください"
+            ;;
+        completed)
+            print_success "Feature完了！お疲れ様でした！"
+            ;;
+        blocked)
+            print_warning "ブロック中: 課題を解決後、ステータスを更新してください"
+            ;;
+    esac
 }
 
 # Update risk level
@@ -1764,7 +1841,12 @@ main() {
 
     case "$command" in
         status)
-            show_status "$@"
+            # Check if updating status or showing status
+            if [[ $# -ge 2 ]]; then
+                update_status "$@"
+            else
+                show_status "$@"
+            fi
             ;;
         validate)
             validate_feature "$@"
