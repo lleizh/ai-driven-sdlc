@@ -205,8 +205,11 @@ Claude Code で対話しながら実装：
 # Feature 一覧
 ./sdlc-cli list
 
-# Feature ステータス（フェーズ進捗付き）
+# Feature ステータス表示
 ./sdlc-cli status FEATURE-123
+
+# Feature ステータス更新
+./sdlc-cli status FEATURE-123 implementing
 
 # Decision ステータス更新
 ./sdlc-cli decision FEATURE-123 confirmed
@@ -218,7 +221,8 @@ Claude Code で対話しながら実装：
 ./sdlc-cli validate FEATURE-123
 
 # GitHub Projects 同期
-./sdlc-cli sync
+./sdlc-cli sync                    # 全Feature同期
+./sdlc-cli sync FEATURE-123        # 指定Featureのみ同期
 
 # 完了した Feature をアーカイブ（90日後）
 ./sdlc-cli archive
@@ -410,27 +414,58 @@ git checkout -b feature/FEATURE-123
 
 ## 既存プロジェクトへの適用
 
+### リモートインストール（推奨）
+
 ```bash
 cd your-project
 
-# フルインストール
-curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash
+# develop ブランチからインストール（最新機能）
+curl -fsSL https://github.com/lleizh/ai-driven-sdlc/raw/develop/install.sh | bash
+
+# master ブランチからインストール（安定版）
+curl -fsSL https://github.com/lleizh/ai-driven-sdlc/raw/master/install.sh | bash
 
 # 確認のみ（dry run）
-curl -fsSL https://raw.githubusercontent.com/lleizh/ai-driven-sdlc/master/install.sh | bash -s -- --dry-run
+curl -fsSL https://github.com/lleizh/ai-driven-sdlc/raw/develop/install.sh | bash -s -- --dry-run
 ```
 
-**ローカルで実行する場合**：
+**注意**: リモートインストール時は自動的にリポジトリをダウンロードして実行されます。
+
+### ローカルインストール
+
 ```bash
 git clone https://github.com/lleizh/ai-driven-sdlc
 cd your-project
 /path/to/ai-driven-sdlc/install.sh
 ```
 
-**オプション**：
+### オプション
+
 - `--force` - 既存ファイルを強制上書き
 - `--update` - 既存ファイルごとに上書き確認
 - `--dry-run` - 実行せず確認のみ
+
+### インストール内容
+
+- `.github/ISSUE_TEMPLATE/` - Issue テンプレート
+- `.github/workflows/` - GitHub Actions（自動同期、ラベル管理）
+- `.claude/commands/` - Claude Code コマンド
+- `sdlc-cli` - 管理ツール
+- `sdlc/templates/` - ドキュメントテンプレート
+- `AI_SDLC.md` - プロセス定義
+
+### GitHub Project セットアップ
+
+`install.sh` は自動的に以下をセットアップします：
+
+1. **GitHub Labels** - feature, bug, risk:high, design-review, implementation など
+2. **GitHub Projects v2** - プロジェクト名: `SDLC - {repo名}`
+   - カスタムフィールド：Status, Feature ID, Risk Level, Decision Status
+3. **`.sdlc-config`** - Project ID とフィールド ID を保存
+
+**既存 Project がある場合**:
+- 同名の Project が見つかった場合、既存のものを使用するか新規作成するか選択できます（対話モード）
+- リモートインストール時は自動的に既存 Project を使用します
 
 ---
 

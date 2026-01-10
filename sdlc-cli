@@ -64,6 +64,8 @@ load_metadata() {
             REVISION_COUNT) REVISION_COUNT="$value" ;;
             LAST_UPDATED) LAST_UPDATED="$value" ;;
             LAST_SYNC) LAST_SYNC="$value" ;;
+            PR_NUMBER) PR_NUMBER="$value" ;;
+            PR_URL) PR_URL="$value" ;;
             REVISION_*)
                 # Handle REVISION_N_DATE, REVISION_N_MAKER, etc.
                 eval "$key=\"\$value\""
@@ -175,6 +177,9 @@ SDLC CLI v${VERSION} - 管理ツール
   list                              全Featureの一覧表示
 
   status <feature-id>               Featureのステータス表示
+  status <feature-id> <status>      Featureのステータスを変更
+                                    status: planning|design|implementing|
+                                            testing|review|completed|blocked
 
 状態管理:
   decision <feature-id> <status>    Decisionステータスを変更
@@ -187,9 +192,9 @@ SDLC CLI v${VERSION} - 管理ツール
   validate <feature-id>             治理チェックリスト（文書・プロセス検証）
 
 GitHub Projects 同期:
-  sync                              全Featureを GitHub Projects に同期
-                                    - Feature ID でマッチング
-                                    - 存在しない場合は追加
+  sync [feature-id]                 Featureを GitHub Projects に同期
+                                    - feature-id 指定時: 指定Featureのみ同期
+                                    - feature-id 省略時: 全Feature同期
                                     - Issue URL がない feature はスキップ
 
 アーカイブ:
@@ -257,155 +262,15 @@ show_status() {
         return 1
     fi
 
-    # ========================================
-    # 基本情報
-    # ========================================
-    echo "基本情報:"
-    echo "  Feature ID:         ${feature_id}"
-    echo "  Issue URL:          ${ISSUE_URL:-未設定}"
-    echo "  リスクレベル:       ${RISK_LEVEL}"
-    echo "  作成日:             ${CREATED_DATE}"
-    echo ""
-
-    # ========================================
-    # フェーズ進捗（治理視点）
-    # ========================================
-    echo "フェーズ進捗:"
-
-    # Phase 1: Planning
-    if [[ -f "${feature_dir}/00_context.md" ]] && [[ -s "${feature_dir}/00_context.md" ]]; then
-        echo -e "  ${GREEN}✓${NC} 1. Planning    - Context 作成済み"
-    else
-        echo -e "  ${YELLOW}◐${NC} 1. Planning    - Context 作成中"
-    fi
-
-    # Phase 2: Design
-    local decision_status=$(grep "^Status:" "${feature_dir}/decisions.md" 2>/dev/null | head -1 | awk '{print $2}')
-    if [[ "$decision_status" == "CONFIRMED" ]] || [[ "$decision_status" == "REVISED" ]]; then
-        echo -e "  ${GREEN}✓${NC} 2. Design      - Decision CONFIRMED"
-    elif [[ "$decision_status" == "PENDING" ]]; then
-        echo -e "  ${YELLOW}◐${NC} 2. Design      - Decision PENDING (レビュー中)"
-    else
-        echo -e "  ${YELLOW}○${NC} 2. Design      - Decision 未確定"
-    fi
-
-    # Phase 3: Implementation
-    if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
-        if [[ "$STATUS" == "implementing" ]] || [[ "$STATUS" == "implemented" ]]; then
-            echo -e "  ${GREEN}✓${NC} 3. Implement   - 実装中/完了"
-        else
-            echo -e "  ${YELLOW}◐${NC} 3. Implement   - 実装計画作成済み"
-        fi
-    else
-        echo -e "  ${YELLOW}○${NC} 3. Implement   - 未開始"
-    fi
-
-    # Phase 4: Review
-    if [[ -f "${feature_dir}/40_review_findings.md" ]] && [[ -s "${feature_dir}/40_review_findings.md" ]]; then
-        local blocking_count=$(grep -c "Severity: MUST_FIX" "${feature_dir}/40_review_findings.md" 2>/dev/null | xargs || echo "0")
-        if [[ $blocking_count -gt 0 ]]; then
-            echo -e "  ${RED}⚠${NC} 4. Review      - MUST_FIX 問題あり (${blocking_count}件)"
-        else
-            echo -e "  ${GREEN}✓${NC} 4. Review      - レビュー完了"
-        fi
-    else
-        echo -e "  ${YELLOW}○${NC} 4. Review      - 未実施"
-    fi
-
-    echo ""
-
-    # ========================================
-    # 治理チェックリスト（簡易版）
-    # ========================================
-    echo "治理チェックリスト（簡易）:"
-
-    local checks_passed=0
-    local checks_total=0
-
-    # Check 1: Issue URL
-    ((checks_total++))
-    if [[ -n "$ISSUE_URL" ]] && [[ "$ISSUE_URL" != "https://github.com/owner/repo/issues/" ]]; then
-        echo -e "  ${GREEN}✓${NC} Issue URL 設定済み"
-        ((checks_passed++))
-    else
-        echo -e "  ${RED}✗${NC} Issue URL 未設定"
-    fi
-
-    # Check 2: Risks
-    ((checks_total++))
-    local risk_count=$(grep -c "^## Risk" "${feature_dir}/risks.md" 2>/dev/null | xargs || echo "0")
-    if [[ $risk_count -gt 0 ]]; then
-        echo -e "  ${GREEN}✓${NC} リスク記録済み (${risk_count}個)"
-        ((checks_passed++))
-    else
-        echo -e "  ${RED}✗${NC} リスク未記録"
-    fi
-
-    # Check 3: Decision Status
-    ((checks_total++))
-    if [[ "$decision_status" == "CONFIRMED" ]] || [[ "$decision_status" == "REVISED" ]]; then
-        echo -e "  ${GREEN}✓${NC} Decision 確定済み"
-        ((checks_passed++))
-    else
-        echo -e "  ${YELLOW}○${NC} Decision 未確定 (${decision_status:-PENDING})"
-    fi
-
-    # Check 4: Implementation Plan (for Medium/High Risk)
-    if [[ "$RISK_LEVEL" != "low" ]]; then
-        ((checks_total++))
-        if [[ -f "${feature_dir}/30_implementation_plan.md" ]] && [[ -s "${feature_dir}/30_implementation_plan.md" ]]; then
-            echo -e "  ${GREEN}✓${NC} 実装計画作成済み"
-            ((checks_passed++))
-        else
-            echo -e "  ${YELLOW}○${NC} 実装計画未作成 (${RISK_LEVEL} リスク)"
-        fi
-    fi
-
-    echo ""
-    echo "  合格率: ${checks_passed}/${checks_total}"
-    echo ""
-
-    # ========================================
-    # ドキュメント一覧
-    # ========================================
-    echo "ドキュメント:"
-    for doc in "${feature_dir}"/*.md; do
-        if [[ -f "$doc" ]]; then
-            local doc_name=$(basename "$doc")
-            local line_count=$(wc -l < "$doc" | xargs)
-            local status_icon="○"
-
-            if [[ $line_count -gt 10 ]]; then
-                status_icon="${GREEN}✓${NC}"
-            elif [[ $line_count -gt 0 ]]; then
-                status_icon="${YELLOW}◐${NC}"
-            fi
-
-            echo -e "  ${status_icon} ${doc_name} (${line_count} lines)"
-        fi
-    done
-    echo ""
-
-    # ========================================
-    # 次のアクション提案
-    # ========================================
-    print_info "次のアクション:"
-
-    if [[ -z "$ISSUE_URL" ]] || [[ "$ISSUE_URL" == "https://github.com/owner/repo/issues/" ]]; then
-        echo "  → .metadata の ISSUE_URL を設定"
-    elif [[ $risk_count -eq 0 ]]; then
-        echo "  → risks.md にリスクを記録"
-    elif [[ "$decision_status" != "CONFIRMED" ]] && [[ "$decision_status" != "REVISED" ]]; then
-        echo "  → /sdlc-pr-design ${feature_id} で Design Review を開始"
-        echo "  → レビュー後、/sdlc-decision ${feature_id} で Decision を確定"
-    elif [[ ! -f "${feature_dir}/30_implementation_plan.md" ]] && [[ "$RISK_LEVEL" != "low" ]]; then
-        echo "  → /sdlc-impl-plan ${feature_id} で実装計画を生成"
-    elif [[ "$STATUS" == "implementing" ]] && [[ ! -f "${feature_dir}/40_review_findings.md" ]]; then
-        echo "  → /sdlc-check ${feature_id} で実装を検証"
-        echo "  → /sdlc-pr-code ${feature_id} で Implementation PR を作成"
-    else
-        echo "  → sdlc-cli validate ${feature_id} で詳細な検証を実行"
-    fi
+    # Display basic information from metadata
+    echo "Feature ID:         ${feature_id}"
+    echo "Status:             ${STATUS}"
+    echo "Decision Status:    ${DECISION_STATUS}"
+    echo "Risk Level:         ${RISK_LEVEL}"
+    echo "Issue URL:          ${ISSUE_URL:-未設定}"
+    echo "Branch:             ${BRANCH:-未設定}"
+    echo "Created:            ${CREATED_DATE}"
+    echo "Last Updated:       ${LAST_UPDATED:-未設定}"
 }
 
 # Validate feature (Governance Checklist)
@@ -781,6 +646,80 @@ update_decision() {
     if [[ "$decision_status" == "confirmed" ]]; then
         print_success "実装を開始できます！"
     fi
+}
+
+# Update status
+update_status() {
+    local feature_id=$1
+    local status=$2
+
+    if [[ -z "$feature_id" ]] || [[ -z "$status" ]]; then
+        print_error "Feature IDとステータスが必要です"
+        echo "使用方法: sdlc-cli status <feature-id> <planning|design|implementing|testing|review|completed|blocked>"
+        return 1
+    fi
+
+    # Validate feature ID format
+    if ! validate_feature_id "$feature_id"; then
+        return 1
+    fi
+
+    if [[ ! "$status" =~ ^(planning|design|implementing|testing|review|completed|blocked)$ ]]; then
+        print_error "ステータスは planning, design, implementing, testing, review, completed, blocked のいずれかです"
+        return 1
+    fi
+
+    local feature_dir="${FEATURES_DIR}/${feature_id}"
+
+    if [[ ! -d "$feature_dir" ]]; then
+        print_error "Feature ${feature_id} が見つかりません"
+        return 1
+    fi
+
+    # Load metadata to get old status
+    if ! load_metadata "${feature_dir}"; then
+        return 1
+    fi
+    local old_status=$STATUS
+
+    # Use safe sed replacement
+    if ! safe_sed_inplace "s/STATUS=.*/STATUS=${status}/" "${feature_dir}/.metadata"; then
+        print_error "Failed to update .metadata"
+        return 1
+    fi
+
+    # Update LAST_UPDATED
+    local current_date=$(date +%Y-%m-%d)
+    if ! safe_sed_inplace "s/LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" "${feature_dir}/.metadata"; then
+        print_warning "Failed to update LAST_UPDATED"
+    fi
+
+    print_success "Feature ${feature_id} のステータスを ${old_status} → ${status} に更新"
+
+    # Provide helpful tips based on status
+    case "$status" in
+        planning)
+            print_info "次のステップ: /sdlc-decision でDecisionを確定してください"
+            ;;
+        design)
+            print_info "次のステップ: Design PRを作成してレビューを受けてください"
+            ;;
+        implementing)
+            print_info "次のステップ: 実装を進めてください"
+            ;;
+        testing)
+            print_info "次のステップ: /sdlc-test でテストを実行してください"
+            ;;
+        review)
+            print_info "次のステップ: Code Review PRを作成してください"
+            ;;
+        completed)
+            print_success "Feature完了！お疲れ様でした！"
+            ;;
+        blocked)
+            print_warning "ブロック中: 課題を解決後、ステータスを更新してください"
+            ;;
+    esac
 }
 
 # Update risk level
@@ -1381,7 +1320,24 @@ remove_from_projects() {
 # Sync to GitHub Projects
 # ========================================
 sync_to_projects() {
-    print_info "GitHub Projects への同期を開始します"
+    local target_feature_id=$1
+
+    if [[ -n "$target_feature_id" ]]; then
+        # Validate feature ID format
+        if ! validate_feature_id "$target_feature_id"; then
+            return 1
+        fi
+
+        # Check if feature exists
+        if [[ ! -d "${FEATURES_DIR}/${target_feature_id}" ]]; then
+            print_error "Feature ${target_feature_id} が見つかりません"
+            return 1
+        fi
+
+        print_info "Feature ${target_feature_id} を GitHub Projects に同期します"
+    else
+        print_info "全 Feature を GitHub Projects に同期します"
+    fi
     echo ""
 
     # Check .sdlc-config
@@ -1416,13 +1372,26 @@ sync_to_projects() {
     echo "Project ID: $PROJECT_ID"
     echo ""
 
-    # Get all features
+    # Get features to sync
     local feature_count=0
     local synced_count=0
     local skipped_count=0
     local error_count=0
 
-    for feature_dir in "${FEATURES_DIR}"/*; do
+    local features_to_sync=()
+    if [[ -n "$target_feature_id" ]]; then
+        # Sync single feature
+        features_to_sync=("${FEATURES_DIR}/${target_feature_id}")
+    else
+        # Sync all features
+        for feature_dir in "${FEATURES_DIR}"/*; do
+            if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
+                features_to_sync+=("$feature_dir")
+            fi
+        done
+    fi
+
+    for feature_dir in "${features_to_sync[@]}"; do
         if [[ ! -d "$feature_dir" ]]; then
             continue
         fi
@@ -1762,7 +1731,12 @@ main() {
 
     case "$command" in
         status)
-            show_status "$@"
+            # Check if updating status or showing status
+            if [[ $# -ge 2 ]]; then
+                update_status "$@"
+            else
+                show_status "$@"
+            fi
             ;;
         validate)
             validate_feature "$@"
