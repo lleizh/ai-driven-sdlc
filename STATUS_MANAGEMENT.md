@@ -103,7 +103,7 @@ implementing → blocked → (revision PR) → implementing
 
 ### 4.2 GitHub Actions Workflows
 
-#### Workflow 1: `auto-add-issues.yml`
+#### Workflow 1: `sdlc-auto-add-issues.yml`
 - **トリガー**: Issue に `sdlc:track` label 追加
 - **動作**: 
   - Issue を Projects の **Backlog** に自動追加
@@ -113,19 +113,19 @@ implementing → blocked → (revision PR) → implementing
   - 存在しない → Projects から削除
   - 存在する → Projects に保持（/sdlc-init 実行済みと判断）
 
-#### Workflow 2: `sync-projects.yml`
+#### Workflow 2: `sdlc-sync-projects.yml`
 - **トリガー**: `.metadata` ファイルの push（develop/feature ブランチ）
 - **動作**:
   - 変更された `.metadata` を検出
   - GitHub Projects の対応フィールドを更新
   - STATUS, DECISION_STATUS, RISK_LEVEL, FEATURE_ID を同期
 
-#### Workflow 3: `update-feature-status.yml`
+#### Workflow 3: `sdlc-update-feature-status.yml`
 - **トリガー**: develop ブランチへの PR merge
 - **動作**:
   - マージコミットから Feature ID 抽出
   - `.metadata` の STATUS を **implementing** → **completed** に更新
   - Git commit & push（`[skip ci]` でループ回避）
-  - 次に `sync-projects.yml` がトリガーされ、Projects の STATUS → **Done** に更新
+  - 次に `sdlc-sync-projects.yml` がトリガーされ、Projects の STATUS → **Done** に更新
 
 ---

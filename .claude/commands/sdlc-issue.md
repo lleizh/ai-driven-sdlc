@@ -1,3 +1,7 @@
+---
+description: 現在の対話内容を基に GitHub Issue を作成する
+---
+
 # Command: /sdlc-issue
 
 現在の対話内容を基に GitHub Issue を作成します。
@@ -38,10 +42,14 @@
 {対話から抽出、なければ空欄}
 
 ## Risk Level (初期リスク評価)
-- [x] **{判定した Level}**: {理由}
+- [ ] **Low**: バグ修正、UI微調整、局所的な変更
+- [ ] **Medium**: 新機能追加、サブシステムの変更
+- [ ] **High**: システム全体への影響、認証・課金など重要システムの変更
+
+**重要**: AI が推奨するリスクレベルに `[x]` をつけるが、**他の2つの選択肢も必ず残す**こと。ユーザーが後で変更できるようにする。
 
 ### リスク評価の理由
-{なぜこのリスクレベルか}
+{AI が推奨したリスクレベルとその理由を説明}
 
 ## Feature ID
 FEATURE-TBD
@@ -56,7 +64,7 @@ FEATURE-TBD
 
 ### 3. GitHub Issue 作成
 
-まず、Feature ID を `FEATURE-TBD` として Issue を作成：
+Feature ID を `FEATURE-TBD` として Issue を作成：
 
 ```bash
 issue_url=$(gh issue create \
@@ -68,33 +76,27 @@ issue_url=$(gh issue create \
 
 注：`sdlc:track` ラベルを追加することで、Issue が自動的に GitHub Projects の Backlog に追加されます。
 
-Issue 番号を取得：
-```bash
-issue_number=$(echo "$issue_url" | grep -o '[0-9]*$')
-```
-
 ### 4. Feature ID を更新
 
-Issue 本文の `FEATURE-TBD` を `FEATURE-{issue_number}` に更新：
+Issue 番号を取得し、Feature ID を更新：
 
 ```bash
-gh issue view "$issue_number" --json body -q .body | \
-  sed "s/FEATURE-TBD/FEATURE-$issue_number/g" | \
-  gh issue edit "$issue_number" --body-file -
+# Issue 番号を取得
+issue_number=$(echo "$issue_url" | grep -oE '[0-9]+$')
+
+# Issue 本文を取得し、FEATURE-TBD を置換
+updated_body=$(gh issue view "$issue_number" --json body -q .body | sed "s/FEATURE-TBD/FEATURE-$issue_number/g")
+
+# Issue を更新
+echo "$updated_body" | gh issue edit "$issue_number" --body-file -
 ```
 
-### 5. 完了メッセージ
+---
 
+## 完了後の次のステップ
+
+Issue 作成後：
 ```
-✅ GitHub Issue を作成しました
-
-Issue: https://github.com/owner/repo/issues/{issue_number}
-Feature ID: FEATURE-{issue_number}
-Labels: feature, sdlc:track
-
-📊 GitHub Projects:
-Issue は自動的に Projects の Backlog に追加されます
-
 次のステップ:
 /sdlc-init https://github.com/owner/repo/issues/{issue_number}
 ```
@@ -103,5 +105,6 @@ Issue は自動的に Projects の Backlog に追加されます
 
 ## エラー処理
 
-- GitHub CLI 未認証 → `gh auth login` を実行
+- GitHub CLI 未認証 → gh がエラー表示、`gh auth login` を実行
 - 対話内容が不明確 → 不足している情報を質問
+- Issue 作成失敗 → gh エラーメッセージを表示

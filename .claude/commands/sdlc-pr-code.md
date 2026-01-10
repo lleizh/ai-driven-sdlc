@@ -1,6 +1,10 @@
+---
+description: 実装 PR（Code Review PR）を作成する
+---
+
 # Command: /sdlc-pr-code
 
-実装 PR を作成します。
+実装 PR（Code Review PR）を作成します。
 
 ## 使用方法
 
@@ -10,159 +14,145 @@
 
 ## 実行内容
 
-### 1. 前提チェック
+### 1. 前提確認
 
-Decision Status が CONFIRMED か確認：
+**共有スクリプトを使用**：
 ```bash
-grep "Status.*: CONFIRMED" sdlc/features/{FEATURE_ID}/decisions.md
-```
+source scripts/common-functions.sh
 
-CONFIRMED でない場合、**エラー終了**：
-```
-❌ エラー: Decisions が CONFIRMED ではありません
+# Feature 存在確認
+check_feature_exists "$FEATURE_ID" || exit 1
 
-現在: PENDING
+# ブランチ検証
+scripts/check-branch.sh "$FEATURE_ID" || exit 1
 
-まず Design Review PR で Decisions を確定してください:
-/sdlc-pr-design {FEATURE_ID}
-```
+# Decision Status 確認
+DECISION_STATUS=$(get_metadata_value "$FEATURE_ID" "DECISION_STATUS")
 
-### 2. ブランチ確認
-
-現在のブランチを確認：
-```bash
-current_branch=$(git branch --show-current)
-
-if [ "$current_branch" != "feature/${FEATURE_ID}" ]; then
-  echo "⚠️ 警告: 現在のブランチは feature/${FEATURE_ID} ではありません"
-  echo "現在: $current_branch"
-  echo ""
-  echo "このまま続行しますか？ (y/N)"
-  read -r response
-  if [ "$response" != "y" ]; then
+if [[ "$DECISION_STATUS" != "confirmed" ]]; then
+    display_error \
+        "Decisions が CONFIRMED ではありません" \
+        "現在: ${DECISION_STATUS}" \
+        "/sdlc-pr-design ${FEATURE_ID} で Design Review PR を完了してください"
     exit 1
-  fi
 fi
 ```
 
-### 3. Rebase with develop
+### 2. メタデータ更新
 
-develop から最新を取得して rebase：
+**共有スクリプトを使用**：
 ```bash
-echo "📊 Rebasing with develop..."
-git fetch origin develop
-git rebase origin/develop
-
-# コンフリクトがある場合
-if [ $? -ne 0 ]; then
-  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
-  echo "   git rebase --continue"
-  echo "   Then re-run /sdlc-pr-code {FEATURE_ID}"
-  exit 1
-fi
+scripts/update-metadata.sh "$FEATURE_ID" "STATUS" "review"
+scripts/update-metadata.sh "$FEATURE_ID" "LAST_UPDATED" "$(date +%Y-%m-%d)"
 ```
 
-### 4. メタデータ更新
-
-`.metadata` を更新：
-```bash
-# STATUS を review に変更
-sed -i '' 's/^STATUS=.*/STATUS=review/' sdlc/features/${FEATURE_ID}/.metadata
-
-# LAST_UPDATED を更新
-current_date=$(date +%Y-%m-%d)
-if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
-  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
-else
-  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
-fi
-```
-
-### 5. Commit と Push
+### 3. Commit & Push
 
 ```bash
-# .metadata の変更を commit
-git add sdlc/features/${FEATURE_ID}/.metadata
+ISSUE_NUMBER=$(get_metadata_value "$FEATURE_ID" "ISSUE_URL" | grep -oE '[0-9]+$')
+
+git add "sdlc/features/${FEATURE_ID}/.metadata"
 git commit -m "chore(${FEATURE_ID}): update STATUS to review
 
-Related: #<issue-number>"
+Related: #${ISSUE_NUMBER}"
 
-# Force push（rebase したため -f が必要）
-git push origin feature/${FEATURE_ID} -f
+git push origin "feature/${FEATURE_ID}"
 ```
 
-### 6. Feature ドキュメント読取
+### 4. Feature ドキュメント読取
 
 以下のファイルを読み取る：
-- `sdlc/features/{FEATURE_ID}/.metadata`
-- `sdlc/features/{FEATURE_ID}/00_context.md`
-- `sdlc/features/{FEATURE_ID}/decisions.md`
-- `sdlc/features/{FEATURE_ID}/30_implementation_plan.md`（存在する場合）
-- `sdlc/features/{FEATURE_ID}/50_test_plan.md`（存在する場合）
+- `.metadata`
+- `00_context.md`
+- `decisions.md`
+- `30_implementation_plan.md`（存在する場合）
+- `50_test_plan.md`（存在する場合）
 
-### 7. PR Description 生成
+### 5. PR Description 生成
 
 以下のセクションを含む Markdown を生成：
 
-**🎯 実装内容**
+**🎯 実装内容**：
 - Context の Goals
 - Issue URL
-- Design PR へのリンク（GitHub で検索: `is:pr label:design-review {FEATURE_ID}`）
+- Design PR へのリンク
 
-**📝 実装説明**
-- Implementation Plan から主な変更点を抽出
+**📝 実装説明**：
+- Implementation Plan から主な変更点
+- 実装したコンポーネント
+- 技術スタック
 
-**✅ 確定済み Decisions**（表形式）
-- Decision | 選択した Option | 理由
+**✅ 確定済み Decisions**（表形式）：
 
-**🧪 テスト**
+| Decision | Chosen Option | Rationale |
+|----------|---------------|-----------|
+| {決定事項} | {選択} | {理由} |
+
+**🧪 テスト**：
 - Test Plan からテスト概要
-- テストカバレッジ（Unit/Integration/E2E）
+- テストカバレッジ
+- テスト実行結果
 
-**⚠️ Breaking Changes**
-- Breaking Changes がある場合のみ記載
+**⚠️ Breaking Changes**：
+（ある場合のみ）
+- 互換性のない変更
+- マイグレーション手順
 
-**📚 関連ドキュメント**
-- Issue URL とファイルパス
+**📚 関連ドキュメント**：
+- Issue: #{ISSUE_NUMBER}
+- Design PR: #{DESIGN_PR_NUMBER}
+- Feature Docs: `sdlc/features/{FEATURE_ID}/`
 
-**✅ マージ条件**
-- テスト通過
-- コードレビュー承認
-- ドキュメント更新
+**✅ マージ条件**：
+- [ ] CI チェック通過
+- [ ] コードレビュー承認
+- [ ] ドキュメント更新完了
 
-### 8. PR 作成
+### 6. PR 作成
 
 ```bash
-# PR を作成
+# Extract title from context
+TITLE=$(get_metadata_value "$FEATURE_ID" "TITLE")
+ISSUE_NUMBER=$(get_metadata_value "$FEATURE_ID" "ISSUE_URL" | grep -oE '[0-9]+$')
+
+# Create PR
 gh pr create \
-  --title "{FEATURE_ID}: {タイトル}" \
+  --title "${FEATURE_ID}: ${TITLE}" \
   --body "{生成した PR Description}" \
   --label "implementation" \
   --base develop
+
+# Get PR URL
+PR_URL=$(gh pr view --json url -q .url)
 ```
 
-### 9. 完了メッセージ
+---
 
-```
-✅ Implementation PR を作成しました
+## 完了後の次のステップ
 
-📋 PR 情報:
-- URL: {GitHub PR URL}
-- Branch: feature/{FEATURE_ID}
-- Label: implementation
-- Status: review
+PR 作成後：
+1. CI チェックを確認
+2. コードレビューを依頼
+3. レビューコメントに対応
+4. approve されたらマージ
 
-次のステップ:
-- CI チェックを確認
-- コードレビューを依頼
-```
+---
+
+## 共有スクリプトの活用
+
+このコマンドは以下の共有機能を使用：
+- `check_feature_exists()` - Feature 存在確認
+- `check-branch.sh` - ブランチ検証
+- `get_metadata_value()` - Metadata 値取得
+- `display_error()` - エラー表示
+- `update-metadata.sh` - Metadata 更新
 
 ---
 
 ## エラー処理
 
-- Feature 不存在 → `❌ /sdlc-init <issue-url> を先に実行`
-- Decision 未確定 → `❌ まず /sdlc-pr-design で Design PR を完了`
-- gh 未認証 → `❌ gh auth login を実行`
-- ブランチ不一致 → 警告表示、続行確認
-- PR 作成失敗 → push 確認、gh auth status 確認
+- Feature 不存在 → `check_feature_exists()` がエラー表示
+- ブランチ不一致 → `check-branch.sh` がエラー表示
+- Decision 未確定 → Design PR 完了を促す
+- gh 未認証 → `gh auth login` を促す
+- PR 作成失敗 → エラー詳細を表示

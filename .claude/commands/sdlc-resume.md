@@ -14,26 +14,56 @@ Decision Revision 完了後、または blocked 状態解除後に実装を再�
 
 ## 実行内容
 
-### 1. 前提条件チェック
+### 1. 前提確認
 
-- Feature が存在する
-- STATUS が `blocked` または DECISION_STATUS が `revised`
-- 中/高リスクの場合：Revision PR が merged されている（該当する場合）
+**共有スクリプトを使用**：
+```bash
+source scripts/common-functions.sh
+
+# Feature 存在確認
+check_feature_exists "$FEATURE_ID" || exit 1
+
+# ブランチ検証
+scripts/check-branch.sh "$FEATURE_ID" || exit 1
+
+# STATUS 確認（blocked であることを確認）
+STATUS=$(get_metadata_value "$FEATURE_ID" "STATUS")
+
+if [[ "$STATUS" != "blocked" ]]; then
+    display_error \
+        "STATUS が blocked ではありません" \
+        "現在: ${STATUS}" \
+        "このコマンドは blocked 状態からの再開に使用します"
+    exit 1
+fi
+```
 
 ### 2. 現在の状態を確認
 
-`.metadata` を読み取り、以下を確認：
-- 現在の STATUS
-- PREVIOUS_STATUS（blocked の場合）
-- DECISION_STATUS
-- REVISION_COUNT
+`.metadata` から現在の状態を取得：
+
+```bash
+# 現在の情報を取得
+PREVIOUS_STATUS=$(get_metadata_value "$FEATURE_ID" "PREVIOUS_STATUS" || echo "implementing")
+DECISION_STATUS=$(get_metadata_value "$FEATURE_ID" "DECISION_STATUS")
+REVISION_COUNT=$(get_metadata_value "$FEATURE_ID" "REVISION_COUNT" || echo "0")
+BLOCKED_REASON=$(get_metadata_value "$FEATURE_ID" "BLOCKED_REASON")
+
+# 情報を表示
+echo "現在の状態:"
+echo "  STATUS: blocked"
+echo "  PREVIOUS_STATUS: ${PREVIOUS_STATUS}"
+echo "  DECISION_STATUS: ${DECISION_STATUS}"
+echo "  REVISION_COUNT: ${REVISION_COUNT}"
+echo "  BLOCKED_REASON: ${BLOCKED_REASON}"
+```
 
 ### 3. Implementation Plan 更新の確認
 
 Revision がある場合、ユーザーに確認：
 
 ```
-⚠️ Decision が修訂されています (Revision #{N})
+⚠️ Decision が修訂されています (Revision #${REVISION_COUNT})
 
 実装計画を再生成しますか？
 
@@ -41,108 +71,79 @@ Revision がある場合、ユーザーに確認：
 [N] いいえ - 影響が小さい場合、既存の計画で続行
 
 Revision の内容:
-{REVISION_{N}_REASON}
+  ${LAST_REVISION_REASON}
 
 選択 [Y/N]:
 ```
 
-### 4. Implementation Plan の更新（Y を選択した場合）
+### 4. Implementation Plan の更新
+
+ユーザーが Y を選択した場合：
 
 ```bash
-/sdlc-impl-plan {FEATURE_ID}
-```
-
-自動的に実施計画を再生成し、修訂後の Decision に基づいて更新。
-
-### 5. ブランチ確認と最新取得
-
-```bash
-# feature ブランチに切り替え
-git checkout feature/{FEATURE_ID}
-
-# develop から最新の文書を取得（rebase）
-git pull origin develop --rebase
-
-# rebase コンフリクトがある場合
-if [ $? -ne 0 ]; then
-  echo "⚠️ Rebase conflicts detected. Please resolve and run:"
-  echo "   git rebase --continue"
-  echo "   Then re-run /sdlc-resume {FEATURE_ID}"
-  exit 1
+if [[ "$UPDATE_PLAN" == "Y" || "$UPDATE_PLAN" == "y" ]]; then
+    echo "実装計画を再生成しています..."
+    /sdlc-impl-plan "$FEATURE_ID"
 fi
 ```
 
-### 6. メタデータ更新
+### 5. メタデータ更新
 
-`.metadata` を更新：
-
+**共有スクリプトを使用**：
 ```bash
-# PREVIOUS_STATUS から STATUS を復元（なければ implementing に設定）
-if grep -q "^PREVIOUS_STATUS=" sdlc/features/${FEATURE_ID}/.metadata; then
-  previous_status=$(grep "^PREVIOUS_STATUS=" sdlc/features/${FEATURE_ID}/.metadata | cut -d= -f2)
-  sed -i '' "s/^STATUS=.*/STATUS=${previous_status}/" sdlc/features/${FEATURE_ID}/.metadata
-else
-  sed -i '' 's/^STATUS=.*/STATUS=implementing/' sdlc/features/${FEATURE_ID}/.metadata
-fi
+# STATUS を復元
+scripts/update-metadata.sh "$FEATURE_ID" "STATUS" "$PREVIOUS_STATUS"
 
 # blocked 関連フィールドを削除
-sed -i '' '/^BLOCKED_REASON=/d' sdlc/features/${FEATURE_ID}/.metadata
-sed -i '' '/^BLOCKED_DATE=/d' sdlc/features/${FEATURE_ID}/.metadata
-sed -i '' '/^BLOCKED_BY=/d' sdlc/features/${FEATURE_ID}/.metadata
-sed -i '' '/^PREVIOUS_STATUS=/d' sdlc/features/${FEATURE_ID}/.metadata
+scripts/update-metadata.sh "$FEATURE_ID" "BLOCKED_REASON" ""
+scripts/update-metadata.sh "$FEATURE_ID" "BLOCKED_DATE" ""
+scripts/update-metadata.sh "$FEATURE_ID" "BLOCKED_BY" ""
+scripts/update-metadata.sh "$FEATURE_ID" "PREVIOUS_STATUS" ""
 
 # 再開情報を記録
-current_date=$(date +%Y-%m-%d)
-echo "RESUMED_DATE=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
-
-# LAST_UPDATED を更新
-if grep -q "^LAST_UPDATED=" sdlc/features/${FEATURE_ID}/.metadata; then
-  sed -i '' "s/^LAST_UPDATED=.*/LAST_UPDATED=${current_date}/" sdlc/features/${FEATURE_ID}/.metadata
-else
-  echo "LAST_UPDATED=${current_date}" >> sdlc/features/${FEATURE_ID}/.metadata
-fi
+scripts/update-metadata.sh "$FEATURE_ID" "RESUMED_DATE" "$(date +%Y-%m-%d)"
+scripts/update-metadata.sh "$FEATURE_ID" "LAST_UPDATED" "$(date +%Y-%m-%d)"
 ```
 
-### 7. Commit と Push
+### 6. Commit & Push
 
 ```bash
-# .metadata の変更を commit
-git add sdlc/features/${FEATURE_ID}/.metadata
+ISSUE_NUMBER=$(get_metadata_value "$FEATURE_ID" "ISSUE_URL" | grep -oE '[0-9]+$')
+
+git add "sdlc/features/${FEATURE_ID}/.metadata"
 git commit -m "chore(${FEATURE_ID}): resume from blocked status
 
-Related: #<issue-number>"
+Related: #${ISSUE_NUMBER}"
 
-git push origin feature/${FEATURE_ID}
+git push origin "feature/${FEATURE_ID}"
 ```
 
-### 8. 完了メッセージ
+---
 
-```
-✅ 実装を再開しました
+## 完了後の次のステップ
 
-📋 現在の状態:
-- Feature ID: {FEATURE_ID}
-- Branch: feature/{FEATURE_ID}
-- STATUS: {復元された STATUS} (was: blocked)
-- DECISION_STATUS: {current status}
-- Implementation Plan: {更新済み/既存を使用}
+実装を再開した後：
 
-📝 Revision 情報 (該当する場合):
-- Revision Count: {N}
-- Last Revision: {REVISION_{N}_REASON}
-- Revision Date: {REVISION_{N}_DATE}
-
-📌 次のステップ:
 1. 修訂後の Decision を確認:
-   - sdlc/features/{FEATURE_ID}/decisions.md
+   - `sdlc/features/{FEATURE_ID}/decisions.md`
 
 2. 必要に応じて既存コードを修正
 
 3. 実装完了後:
-   /sdlc-test {FEATURE_ID}
-   /sdlc-check {FEATURE_ID}
-   /sdlc-pr-code {FEATURE_ID}
-```
+   - `/sdlc-test {FEATURE_ID}`
+   - `/sdlc-check {FEATURE_ID}`
+   - `/sdlc-pr-code {FEATURE_ID}`
+
+---
+
+## 共有スクリプトの活用
+
+このコマンドは以下の共有機能を使用：
+- `check_feature_exists()` - Feature 存在確認
+- `check-branch.sh` - ブランチ検証
+- `get_metadata_value()` - Metadata 値取得
+- `display_error()` - エラー表示
+- `update-metadata.sh` - Metadata 更新
 
 ---
 
@@ -151,59 +152,26 @@ git push origin feature/${FEATURE_ID}
 ### シーン 1: Decision Revision 後
 
 ```bash
-# Revision PR が merged 済み
 /sdlc-resume FEATURE-24
 
 # 実装計画の再生成を確認
 [Y] はい
 
-# 自動実行:
-# - /sdlc-impl-plan FEATURE-24
-# - STATUS=implementing (復元)
-# - git checkout feature/FEATURE-24
-# - git pull origin develop
-
+# STATUS: blocked → implementing (復元)
 ✅ 実装を再開しました
 ```
 
-### シーン 2: 外部依赖阻塞解除後
+### シーン 2: 外部依存の阻塞解除後
 
 ```bash
-# 手動で blocked を設定していた
-# STATUS=blocked
-# BLOCKED_REASON="Waiting for external API v2"
+/sdlc-resume FEATURE-25
 
-# API v2 がリリースされた
-/sdlc-resume FEATURE-24
+# 実装計画の再生成を確認
+[N] いいえ (既存の計画で続行)
 
-# 自動実行:
-# - STATUS=implementing (復元)
-# - BLOCKED_REASON="" (クリア)
-
+# STATUS: blocked → testing (復元)
 ✅ 実装を再開しました
 ```
-
-### シーン 3: 資源阻塞解除後
-
-```bash
-# STATUS=blocked
-# BLOCKED_REASON="Team member on leave"
-
-# メンバーが復帰
-/sdlc-resume FEATURE-24
-
-✅ 実装を再開しました
-```
-
----
-
-## エラー処理
-
-- Feature 不存在 → `❌ Feature が見つかりません`
-- STATUS が blocked でも revised でもない → `⚠️ 再開する必要はありません (現在: {STATUS})`
-- Revision PR 未マージ (中/高リスク) → `❌ Revision PR をマージしてください`
-- ブランチが存在しない → `❌ feature/{FEATURE_ID} ブランチが見つかりません`
-- git pull でコンフリクト → `⚠️ マージコンフリクトを解決してください`
 
 ---
 
@@ -212,6 +180,15 @@ git push origin feature/${FEATURE_ID}
 - 自動でコードを修正しない
 - ユーザーが手動で修訂後の Decision に基づいてコードを調整する必要がある
 - Revision が複数回ある場合、最新の Revision のみを表示
+
+---
+
+## エラー処理
+
+- Feature 不存在 → `check_feature_exists()` がエラー表示
+- ブランチ不一致 → `check-branch.sh` がエラー表示
+- STATUS != blocked → エラー表示
+- PREVIOUS_STATUS 不存在 → implementing に設定
 
 ---
 

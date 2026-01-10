@@ -120,6 +120,11 @@ FILES_TO_COPY=()
 # Issue template
 FILES_TO_COPY+=(".github/ISSUE_TEMPLATE/feature.md")
 
+# GitHub Workflows
+FILES_TO_COPY+=(".github/workflows/sdlc-auto-add-issues.yml")
+FILES_TO_COPY+=(".github/workflows/sdlc-sync-projects.yml")
+FILES_TO_COPY+=(".github/workflows/sdlc-update-feature-status.yml")
+
 # Claude Code commands (list all sdlc-*.md files)
 for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
     if [[ -f "$cmd_file" ]]; then
@@ -144,11 +149,17 @@ echo ""
 
 # Confirm
 if [[ "$DRY_RUN" == false ]]; then
-    read -p "インストールを続行しますか？ (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "キャンセルされました"
-        exit 0
+    if [[ -t 0 ]]; then
+        # Interactive mode
+        read -p "インストールを続行しますか？ (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "キャンセルされました"
+            exit 0
+        fi
+    else
+        # Non-interactive mode (piped execution)
+        print_warning "非対話モードで実行中。自動的に続行します..."
     fi
 fi
 
@@ -208,6 +219,11 @@ print_header "インストール中"
 
 # Install Issue template
 install_file "${SCRIPT_DIR}/.github/ISSUE_TEMPLATE/feature.md" ".github/ISSUE_TEMPLATE/feature.md"
+
+# Install GitHub Workflows
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-auto-add-issues.yml" ".github/workflows/sdlc-auto-add-issues.yml"
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-sync-projects.yml" ".github/workflows/sdlc-sync-projects.yml"
+install_file "${SCRIPT_DIR}/.github/workflows/sdlc-update-feature-status.yml" ".github/workflows/sdlc-update-feature-status.yml"
 
 # Install Claude Code commands (each file individually)
 for cmd_file in "${SCRIPT_DIR}/.claude/commands/sdlc-"*.md; do
@@ -281,7 +297,8 @@ initialize_labels() {
   fi
 
   # Extract repo (owner/repo) from remote URL
-  REPO=$(echo "$REMOTE_URL" | sed -E 's/.*[:\\/]([^\\/]+\\/[^\\/]+)(\.git)?$/\1/' | sed 's/\.git$//')
+  # Use # as delimiter for better compatibility with BSD/GNU sed
+  REPO=$(echo "$REMOTE_URL" | sed -E 's#.*[:/]([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
 
   echo ""
   print_info "GitHub Label を初期化中..."
@@ -363,16 +380,17 @@ setup_github_project() {
 
   print_info "Repository: $REPO_OWNER/$REPO_NAME"
 
-  # Get owner node ID
+  # Get owner node ID (supports both User and Organization)
   OWNER_ID=$(gh api graphql -f query='
     query($login: String!) {
-      user(login: $login) {
+      repositoryOwner(login: $login) {
         id
       }
     }
-  ' -f login="$REPO_OWNER" --jq '.data.user.id' 2>/dev/null || echo "")
+  ' -f login="$REPO_OWNER" --jq '.data.repositoryOwner.id' 2>/dev/null)
 
-  if [[ -z "$OWNER_ID" ]]; then
+  # Enhanced validation to detect error responses
+  if [[ -z "$OWNER_ID" ]] || [[ "$OWNER_ID" == "null" ]] || [[ "$OWNER_ID" == "{"* ]]; then
     print_warning "Owner ID を取得できません。GitHub Project のセットアップをスキップします。"
     return
   fi
@@ -557,6 +575,12 @@ setup_github_project() {
 # Repository
 REPO_OWNER=$REPO_OWNER
 REPO_NAME=$REPO_NAME
+
+# Branch Strategy (Git Flow)
+# IMPORTANT: All PRs should target 'develop', NOT 'master'
+MAIN_BRANCH=master
+DEVELOP_BRANCH=develop
+DEFAULT_PR_BASE=develop
 
 # GitHub Project
 PROJECT_ID=$PROJECT_ID

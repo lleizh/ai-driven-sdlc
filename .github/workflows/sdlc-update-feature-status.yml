@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
 
     steps:
       - name: Checkout
@@ -24,21 +25,11 @@ jobs:
         run: |
           # 最新のコミット情報を取得
           COMMIT_SHA="${{ github.sha }}"
-          COMMITTER=$(git log -1 --pretty=%cn "$COMMIT_SHA")
 
           echo "Commit SHA: $COMMIT_SHA"
-          echo "Committer: $COMMITTER"
-
-          # Committer が "GitHub" でない場合はスキップ（PR マージではない）
-          if [[ "$COMMITTER" != "GitHub" ]]; then
-            echo "⚠️ Committer が 'GitHub' ではありません。PR マージではないためスキップします。"
-            echo "is_merge=false" >> $GITHUB_OUTPUT
-            exit 0
-          fi
-
-          echo "✓ Committer が 'GitHub' です。PR マージの可能性があります。"
 
           # GitHub API を使用して commit に関連する PR を取得
+          # これはマージ方式（Merge/Squash/Rebase）に関係なく動作します
           echo "GitHub API で PR 情報を取得中..."
           PR_DATA=$(gh api "/repos/${{ github.repository }}/commits/$COMMIT_SHA/pulls" \
             --jq '.[0] | {number: .number, head_ref: .head.ref}' 2>&1)
@@ -80,6 +71,8 @@ jobs:
 
       - name: Update metadata STATUS
         if: steps.extract.outputs.is_merge == 'true'
+        env:
+          GH_PAT: ${{ secrets.GH_PAT }}
         run: |
           FEATURE_ID="${{ steps.extract.outputs.feature_id }}"
           METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
@@ -138,11 +131,11 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add "$METADATA_FILE"
-          git commit -m "chore: Mark $FEATURE_ID as completed [skip ci]"
+          git commit -m "chore: Mark $FEATURE_ID as completed"
 
-          # develop にプッシュ
+          # develop にプッシュ (PAT を使用して sync-projects.yml をトリガー)
           echo "変更を develop にプッシュ中..."
-          git push origin develop
+          git push https://x-access-token:${GH_PAT}@github.com/${{ github.repository }} develop
 
           echo ""
           echo "=========================================="
@@ -152,3 +145,59 @@ jobs:
           echo "次のステップ:"
           echo "- sync-projects.yml が自動的にトリガーされます"
           echo "- GitHub Projects の Status が 'Done' に更新されます"
+
+      - name: Close related GitHub Issue
+        if: steps.extract.outputs.is_merge == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          FEATURE_ID="${{ steps.extract.outputs.feature_id }}"
+          METADATA_FILE="sdlc/features/$FEATURE_ID/.metadata"
+
+          echo "=========================================="
+          echo "GitHub Issue をクローズ中: $FEATURE_ID"
+          echo "=========================================="
+
+          # .metadata から ISSUE_URL を抽出
+          if [[ ! -f "$METADATA_FILE" ]]; then
+            echo "⚠️ 警告: .metadata ファイルが見つかりません"
+            echo "⚠️ Issue のクローズをスキップします"
+            exit 0
+          fi
+
+          ISSUE_URL=$(grep "^ISSUE_URL=" "$METADATA_FILE" | cut -d= -f2)
+
+          if [[ -z "$ISSUE_URL" ]]; then
+            echo "⚠️ 警告: ISSUE_URL が .metadata に存在しません"
+            echo "⚠️ Issue のクローズをスキップします"
+            exit 0
+          fi
+
+          echo "✓ ISSUE_URL を確認: $ISSUE_URL"
+
+          # Issue 番号を抽出
+          ISSUE_NUMBER=$(echo "$ISSUE_URL" | grep -oP 'issues/\K[0-9]+')
+
+          if [[ -z "$ISSUE_NUMBER" ]]; then
+            echo "❌ エラー: ISSUE_URL から Issue 番号を抽出できませんでした"
+            echo "❌ ISSUE_URL: $ISSUE_URL"
+            exit 1
+          fi
+
+          echo "✓ Issue 番号を抽出: #$ISSUE_NUMBER"
+
+          # Issue をクローズ
+          echo "Issue #$ISSUE_NUMBER をクローズ中..."
+          gh issue close "$ISSUE_NUMBER" --comment "✅ Feature completed and merged to develop. Automatically closed by workflow."
+
+          if [[ $? -eq 0 ]]; then
+            echo "✓ Issue #$ISSUE_NUMBER をクローズしました"
+          else
+            echo "❌ エラー: Issue #$ISSUE_NUMBER のクローズに失敗しました"
+            exit 1
+          fi
+
+          echo ""
+          echo "=========================================="
+          echo "✅ $FEATURE_ID の Issue をクローズしました"
+          echo "=========================================="

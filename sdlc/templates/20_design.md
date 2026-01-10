@@ -134,11 +134,6 @@ User Input --> Validation --> Business Logic --> Database --> Response
 **Cons**（短所）: 
 **Why Rejected**（却下理由）: 
 
-## Open Questions（未解決の問題）
-<!-- 未解決の問題や要確認事項 -->
-- [ ] 
-- [ ] 
-
 ## References（参考資料）
 <!-- 参考資料 -->
 - 
