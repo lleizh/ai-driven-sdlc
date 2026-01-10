@@ -6,3 +6,5 @@ DECISION_STATUS=confirmed
 ISSUE_URL=https://github.com/lleizh/ai-driven-sdlc/issues/45
 BRANCH=feature/FEATURE-45
 LAST_UPDATED=2026-01-10
+PR_NUMBER=46
+PR_URL=https://github.com/lleizh/ai-driven-sdlc/pull/46
