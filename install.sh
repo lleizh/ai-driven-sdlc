@@ -85,10 +85,43 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Detect if running via pipe (curl | bash)
+PIPED_INSTALL=false
+if [[ -z "${BASH_SOURCE[0]}" ]] || [[ "${BASH_SOURCE[0]}" == "bash" ]]; then
+    PIPED_INSTALL=true
+fi
 
-# Check if in git repository
+# Get script directory
+if [[ "$PIPED_INSTALL" == true ]]; then
+    # Remote installation - download repo to temp directory
+    print_info "リモートインストールを検出しました"
+    print_info "リポジトリをダウンロード中..."
+
+    TEMP_DIR=$(mktemp -d)
+    REPO_URL="https://github.com/lleizh/ai-driven-sdlc"
+
+    if ! command -v git &> /dev/null; then
+        print_error "git コマンドが見つかりません"
+        print_info "git をインストールしてください: brew install git"
+        exit 1
+    fi
+
+    if ! git clone --depth 1 "$REPO_URL" "$TEMP_DIR" &> /dev/null; then
+        print_error "リポジトリのダウンロードに失敗しました"
+        exit 1
+    fi
+
+    SCRIPT_DIR="$TEMP_DIR"
+    print_success "リポジトリをダウンロードしました"
+
+    # Set cleanup trap
+    trap "rm -rf $TEMP_DIR" EXIT
+else
+    # Local installation
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+# Check if in git repository (target directory)
 if [[ ! -d ".git" ]]; then
     print_error "Git リポジトリ内で実行してください"
     exit 1
@@ -395,49 +428,149 @@ setup_github_project() {
     return
   fi
 
-  # Create Project
+  # Check if project already exists
   PROJECT_TITLE="SDLC - $REPO_NAME"
-  print_info "Project を作成中: $PROJECT_TITLE"
+  print_info "既存の Project を確認中: $PROJECT_TITLE"
 
-  CREATE_RESULT=$(gh api graphql -f query='
-    mutation($ownerId: ID!, $title: String!) {
-      createProjectV2(input: {
-        ownerId: $ownerId
-        title: $title
-      }) {
-        projectV2 {
-          id
-          number
-          url
+  EXISTING_PROJECT=$(gh api graphql -f query='
+    query($login: String!) {
+      repositoryOwner(login: $login) {
+        ... on ProjectV2Owner {
+          projectsV2(first: 100) {
+            nodes {
+              id
+              number
+              title
+              url
+            }
+          }
         }
       }
     }
-  ' -f ownerId="$OWNER_ID" -f title="$PROJECT_TITLE" 2>&1)
+  ' -f login="$REPO_OWNER" --jq ".data.repositoryOwner.projectsV2.nodes[] | select(.title == \"$PROJECT_TITLE\")" 2>/dev/null)
 
-  if echo "$CREATE_RESULT" | grep -q "errors"; then
-    print_warning "Project 作成に失敗しました。権限を確認してください。"
-    echo "$CREATE_RESULT" | jq -r '.errors[0].message' 2>/dev/null || echo "$CREATE_RESULT"
-    return
+  if [[ -n "$EXISTING_PROJECT" ]]; then
+    # Found existing project
+    EXISTING_PROJECT_ID=$(echo "$EXISTING_PROJECT" | jq -r '.id')
+    EXISTING_PROJECT_NUMBER=$(echo "$EXISTING_PROJECT" | jq -r '.number')
+    EXISTING_PROJECT_URL=$(echo "$EXISTING_PROJECT" | jq -r '.url')
+
+    print_warning "同名の Project が既に存在します:"
+    print_info "  Title: $PROJECT_TITLE"
+    print_info "  URL: $EXISTING_PROJECT_URL"
+    print_info "  Number: #$EXISTING_PROJECT_NUMBER"
+    echo ""
+
+    # Check if interactive or non-interactive mode
+    if [[ -t 0 ]]; then
+      # Interactive mode - ask user
+      echo "選択してください:"
+      echo "  1) 既存の Project を使用（必要なフィールドを追加）"
+      echo "  2) 新しい Project を作成（タイムスタンプ付き）"
+      echo "  3) キャンセル"
+      read -p "選択 (1/2/3): " -n 1 -r
+      echo ""
+
+      case $REPLY in
+        1)
+          PROJECT_ID="$EXISTING_PROJECT_ID"
+          PROJECT_NUMBER="$EXISTING_PROJECT_NUMBER"
+          PROJECT_URL="$EXISTING_PROJECT_URL"
+          print_success "既存の Project を使用します"
+          ;;
+        2)
+          # Create new project with timestamp
+          TIMESTAMP=$(date +"%Y%m%d-%H%M%S")
+          PROJECT_TITLE="SDLC - $REPO_NAME - $TIMESTAMP"
+          print_info "新しい Project を作成中: $PROJECT_TITLE"
+
+          CREATE_RESULT=$(gh api graphql -f query='
+            mutation($ownerId: ID!, $title: String!) {
+              createProjectV2(input: {
+                ownerId: $ownerId
+                title: $title
+              }) {
+                projectV2 {
+                  id
+                  number
+                  url
+                }
+              }
+            }
+          ' -f ownerId="$OWNER_ID" -f title="$PROJECT_TITLE" 2>&1)
+
+          if echo "$CREATE_RESULT" | grep -q "errors"; then
+            print_warning "Project 作成に失敗しました"
+            echo "$CREATE_RESULT" | jq -r '.errors[0].message' 2>/dev/null || echo "$CREATE_RESULT"
+            return
+          fi
+
+          PROJECT_ID=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.id')
+          PROJECT_NUMBER=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.number')
+          PROJECT_URL=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.url')
+          print_success "Project 作成成功: $PROJECT_URL"
+          ;;
+        *)
+          print_info "キャンセルされました"
+          return
+          ;;
+      esac
+    else
+      # Non-interactive mode - use existing project
+      PROJECT_ID="$EXISTING_PROJECT_ID"
+      PROJECT_NUMBER="$EXISTING_PROJECT_NUMBER"
+      PROJECT_URL="$EXISTING_PROJECT_URL"
+      print_warning "非対話モードのため、既存の Project を自動的に使用します"
+      print_success "既存の Project を使用: $PROJECT_URL"
+    fi
+  else
+    # Create new project
+    print_info "Project を作成中: $PROJECT_TITLE"
+
+    CREATE_RESULT=$(gh api graphql -f query='
+      mutation($ownerId: ID!, $title: String!) {
+        createProjectV2(input: {
+          ownerId: $ownerId
+          title: $title
+        }) {
+          projectV2 {
+            id
+            number
+            url
+          }
+        }
+      }
+    ' -f ownerId="$OWNER_ID" -f title="$PROJECT_TITLE" 2>&1)
+
+    if echo "$CREATE_RESULT" | grep -q "errors"; then
+      print_warning "Project 作成に失敗しました。権限を確認してください。"
+      echo "$CREATE_RESULT" | jq -r '.errors[0].message' 2>/dev/null || echo "$CREATE_RESULT"
+      return
+    fi
+
+    PROJECT_ID=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.id')
+    PROJECT_NUMBER=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.number')
+    PROJECT_URL=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.url')
+
+    print_success "Project 作成成功: $PROJECT_URL"
   fi
 
-  PROJECT_ID=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.id')
-  PROJECT_NUMBER=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.number')
-  PROJECT_URL=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.url')
+  # Setup fields (check existing fields first)
+  echo ""
+  print_info "フィールドをセットアップ中..."
 
-  print_success "Project 作成成功: $PROJECT_URL"
-
-  # Update default Status field (3 fields total)
-  # Note: Modify default "Status" field options with SDLC values (FEATURE-20)
-  print_info "カスタムフィールドを作成中..."
-
-  # Field 1: Get and update default Status field
-  print_info "デフォルト Status フィールドを取得中..."
-  STATUS_FIELD_ID=$(gh api graphql -f query='
+  # Get all existing fields
+  ALL_FIELDS=$(gh api graphql -f query='
     query($projectId: ID!) {
       node(id: $projectId) {
         ... on ProjectV2 {
           fields(first: 20) {
             nodes {
+              __typename
+              ... on ProjectV2Field {
+                id
+                name
+              }
               ... on ProjectV2SingleSelectField {
                 id
                 name
@@ -447,13 +580,14 @@ setup_github_project() {
         }
       }
     }
-  ' -f projectId="$PROJECT_ID" --jq '.data.node.fields.nodes[] | select(.name == "Status") | .id' 2>/dev/null || echo "")
+  ' -f projectId="$PROJECT_ID" --jq '.data.node.fields.nodes' 2>/dev/null || echo "[]")
+
+  # Field 1: Update default Status field
+  print_info "Status フィールドをセットアップ中..."
+  STATUS_FIELD_ID=$(echo "$ALL_FIELDS" | jq -r '.[] | select(.name == "Status") | .id' 2>/dev/null || echo "")
 
   if [[ -n "$STATUS_FIELD_ID" ]]; then
-    print_success "デフォルト Status フィールド取得成功: $STATUS_FIELD_ID"
-
-    # Update Status field options to SDLC values
-    print_info "Status フィールドのオプションを SDLC 値に更新中..."
+    print_info "  既存の Status フィールドを更新中..."
     UPDATED_STATUS=$(gh api graphql -f query='
       mutation($fieldId: ID!) {
         updateProjectV2Field(input: {
@@ -479,91 +613,115 @@ setup_github_project() {
     ' -f fieldId="$STATUS_FIELD_ID" --jq '.data.updateProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
     if [[ -n "$UPDATED_STATUS" ]]; then
-      print_success "Status フィールドのオプションを SDLC 値に更新しました"
+      print_success "  Status フィールドを SDLC 値に更新しました"
     else
-      print_warning "Status フィールドのオプション更新に失敗しました"
+      print_warning "  Status フィールド更新に失敗しました（既に設定済みの可能性）"
     fi
   else
-    print_warning "Status フィールドが見つかりません"
+    print_warning "  Status フィールドが見つかりません"
   fi
 
   # Field 2: Feature ID (Text)
-  FEATURE_FIELD_ID=$(gh api graphql -f query='
-    mutation($projectId: ID!) {
-      createProjectV2Field(input: {
-        projectId: $projectId
-        dataType: TEXT
-        name: "Feature ID"
-      }) {
-        projectV2Field {
-          ... on ProjectV2Field {
-            id
+  print_info "Feature ID フィールドをセットアップ中..."
+  FEATURE_FIELD_ID=$(echo "$ALL_FIELDS" | jq -r '.[] | select(.name == "Feature ID") | .id' 2>/dev/null || echo "")
+
+  if [[ -n "$FEATURE_FIELD_ID" ]]; then
+    print_success "  Feature ID フィールドは既に存在します（スキップ）"
+  else
+    print_info "  Feature ID フィールドを作成中..."
+    FEATURE_FIELD_ID=$(gh api graphql -f query='
+      mutation($projectId: ID!) {
+        createProjectV2Field(input: {
+          projectId: $projectId
+          dataType: TEXT
+          name: "Feature ID"
+        }) {
+          projectV2Field {
+            ... on ProjectV2Field {
+              id
+            }
           }
         }
       }
-    }
-  ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
+    ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
-  if [[ -n "$FEATURE_FIELD_ID" ]]; then
-    print_success "Feature ID フィールド作成成功"
-  else
-    print_warning "Feature ID フィールド作成に失敗"
+    if [[ -n "$FEATURE_FIELD_ID" ]]; then
+      print_success "  Feature ID フィールド作成成功"
+    else
+      print_warning "  Feature ID フィールド作成に失敗"
+    fi
   fi
 
   # Field 3: Risk Level (Single Select)
-  RISK_FIELD_ID=$(gh api graphql -f query='
-    mutation($projectId: ID!) {
-      createProjectV2Field(input: {
-        projectId: $projectId
-        dataType: SINGLE_SELECT
-        name: "Risk Level"
-        singleSelectOptions: [
-          {name: "Low", color: GREEN, description: "Low risk"},
-          {name: "Medium", color: YELLOW, description: "Medium risk"},
-          {name: "High", color: RED, description: "High risk"}
-        ]
-      }) {
-        projectV2Field {
-          ... on ProjectV2SingleSelectField {
-            id
+  print_info "Risk Level フィールドをセットアップ中..."
+  RISK_FIELD_ID=$(echo "$ALL_FIELDS" | jq -r '.[] | select(.name == "Risk Level") | .id' 2>/dev/null || echo "")
+
+  if [[ -n "$RISK_FIELD_ID" ]]; then
+    print_success "  Risk Level フィールドは既に存在します（スキップ）"
+  else
+    print_info "  Risk Level フィールドを作成中..."
+    RISK_FIELD_ID=$(gh api graphql -f query='
+      mutation($projectId: ID!) {
+        createProjectV2Field(input: {
+          projectId: $projectId
+          dataType: SINGLE_SELECT
+          name: "Risk Level"
+          singleSelectOptions: [
+            {name: "Low", color: GREEN, description: "Low risk"},
+            {name: "Medium", color: YELLOW, description: "Medium risk"},
+            {name: "High", color: RED, description: "High risk"}
+          ]
+        }) {
+          projectV2Field {
+            ... on ProjectV2SingleSelectField {
+              id
+            }
           }
         }
       }
-    }
-  ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
+    ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
-  if [[ -n "$RISK_FIELD_ID" ]]; then
-    print_success "Risk Level フィールド作成成功"
-  else
-    print_warning "Risk Level フィールド作成に失敗"
+    if [[ -n "$RISK_FIELD_ID" ]]; then
+      print_success "  Risk Level フィールド作成成功"
+    else
+      print_warning "  Risk Level フィールド作成に失敗"
+    fi
   fi
 
   # Field 4: Decision Status (Single Select)
-  DECISION_FIELD_ID=$(gh api graphql -f query='
-    mutation($projectId: ID!) {
-      createProjectV2Field(input: {
-        projectId: $projectId
-        dataType: SINGLE_SELECT
-        name: "Decision Status"
-        singleSelectOptions: [
-          {name: "Pending", color: GRAY, description: "Decision pending"},
-          {name: "Confirmed", color: GREEN, description: "Decision confirmed"},
-          {name: "Revised", color: YELLOW, description: "Decision revised"}
-        ]
-      }) {
-        projectV2Field {
-          ... on ProjectV2SingleSelectField {
-            id
+  print_info "Decision Status フィールドをセットアップ中..."
+  DECISION_FIELD_ID=$(echo "$ALL_FIELDS" | jq -r '.[] | select(.name == "Decision Status") | .id' 2>/dev/null || echo "")
+
+  if [[ -n "$DECISION_FIELD_ID" ]]; then
+    print_success "  Decision Status フィールドは既に存在します（スキップ）"
+  else
+    print_info "  Decision Status フィールドを作成中..."
+    DECISION_FIELD_ID=$(gh api graphql -f query='
+      mutation($projectId: ID!) {
+        createProjectV2Field(input: {
+          projectId: $projectId
+          dataType: SINGLE_SELECT
+          name: "Decision Status"
+          singleSelectOptions: [
+            {name: "Pending", color: GRAY, description: "Decision pending"},
+            {name: "Confirmed", color: GREEN, description: "Decision confirmed"},
+            {name: "Revised", color: YELLOW, description: "Decision revised"}
+          ]
+        }) {
+          projectV2Field {
+            ... on ProjectV2SingleSelectField {
+              id
+            }
           }
         }
       }
-    }
-  ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
+    ' -f projectId="$PROJECT_ID" --jq '.data.createProjectV2Field.projectV2Field.id' 2>/dev/null || echo "")
 
-  if [[ -n "$DECISION_FIELD_ID" ]]; then
-    print_success "Decision Status フィールド作成成功"
-  else
-    print_warning "Decision Status フィールド作成に失敗"
+    if [[ -n "$DECISION_FIELD_ID" ]]; then
+      print_success "  Decision Status フィールド作成成功"
+    else
+      print_warning "  Decision Status フィールド作成に失敗"
+    fi
   fi
 
   # Save to .sdlc-config
