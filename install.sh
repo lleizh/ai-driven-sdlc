@@ -85,10 +85,43 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-# Get script directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Detect if running via pipe (curl | bash)
+PIPED_INSTALL=false
+if [[ ! -t 0 ]] && [[ "${BASH_SOURCE[0]}" =~ ^/dev/fd/ ]]; then
+    PIPED_INSTALL=true
+fi
 
-# Check if in git repository
+# Get script directory
+if [[ "$PIPED_INSTALL" == true ]]; then
+    # Remote installation - download repo to temp directory
+    print_info "リモートインストールを検出しました"
+    print_info "リポジトリをダウンロード中..."
+
+    TEMP_DIR=$(mktemp -d)
+    REPO_URL="https://github.com/lleizh/ai-driven-sdlc"
+
+    if ! command -v git &> /dev/null; then
+        print_error "git コマンドが見つかりません"
+        print_info "git をインストールしてください: brew install git"
+        exit 1
+    fi
+
+    if ! git clone --depth 1 "$REPO_URL" "$TEMP_DIR" &> /dev/null; then
+        print_error "リポジトリのダウンロードに失敗しました"
+        exit 1
+    fi
+
+    SCRIPT_DIR="$TEMP_DIR"
+    print_success "リポジトリをダウンロードしました"
+
+    # Set cleanup trap
+    trap "rm -rf $TEMP_DIR" EXIT
+else
+    # Local installation
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+fi
+
+# Check if in git repository (target directory)
 if [[ ! -d ".git" ]]; then
     print_error "Git リポジトリ内で実行してください"
     exit 1
