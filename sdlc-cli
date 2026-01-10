@@ -192,9 +192,9 @@ SDLC CLI v${VERSION} - 管理ツール
   validate <feature-id>             治理チェックリスト（文書・プロセス検証）
 
 GitHub Projects 同期:
-  sync                              全Featureを GitHub Projects に同期
-                                    - Feature ID でマッチング
-                                    - 存在しない場合は追加
+  sync [feature-id]                 Featureを GitHub Projects に同期
+                                    - feature-id 指定時: 指定Featureのみ同期
+                                    - feature-id 省略時: 全Feature同期
                                     - Issue URL がない feature はスキップ
 
 アーカイブ:
@@ -1320,7 +1320,24 @@ remove_from_projects() {
 # Sync to GitHub Projects
 # ========================================
 sync_to_projects() {
-    print_info "GitHub Projects への同期を開始します"
+    local target_feature_id=$1
+
+    if [[ -n "$target_feature_id" ]]; then
+        # Validate feature ID format
+        if ! validate_feature_id "$target_feature_id"; then
+            return 1
+        fi
+
+        # Check if feature exists
+        if [[ ! -d "${FEATURES_DIR}/${target_feature_id}" ]]; then
+            print_error "Feature ${target_feature_id} が見つかりません"
+            return 1
+        fi
+
+        print_info "Feature ${target_feature_id} を GitHub Projects に同期します"
+    else
+        print_info "全 Feature を GitHub Projects に同期します"
+    fi
     echo ""
 
     # Check .sdlc-config
@@ -1355,13 +1372,26 @@ sync_to_projects() {
     echo "Project ID: $PROJECT_ID"
     echo ""
 
-    # Get all features
+    # Get features to sync
     local feature_count=0
     local synced_count=0
     local skipped_count=0
     local error_count=0
 
-    for feature_dir in "${FEATURES_DIR}"/*; do
+    local features_to_sync=()
+    if [[ -n "$target_feature_id" ]]; then
+        # Sync single feature
+        features_to_sync=("${FEATURES_DIR}/${target_feature_id}")
+    else
+        # Sync all features
+        for feature_dir in "${FEATURES_DIR}"/*; do
+            if [[ -d "$feature_dir" ]] && [[ -f "${feature_dir}/.metadata" ]]; then
+                features_to_sync+=("$feature_dir")
+            fi
+        done
+    fi
+
+    for feature_dir in "${features_to_sync[@]}"; do
         if [[ ! -d "$feature_dir" ]]; then
             continue
         fi
