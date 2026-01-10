@@ -149,11 +149,17 @@ echo ""
 
 # Confirm
 if [[ "$DRY_RUN" == false ]]; then
-    read -p "インストールを続行しますか？ (y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_info "キャンセルされました"
-        exit 0
+    if [[ -t 0 ]]; then
+        # Interactive mode
+        read -p "インストールを続行しますか？ (y/n) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_info "キャンセルされました"
+            exit 0
+        fi
+    else
+        # Non-interactive mode (piped execution)
+        print_warning "非対話モードで実行中。自動的に続行します..."
     fi
 fi
 
@@ -291,7 +297,8 @@ initialize_labels() {
   fi
 
   # Extract repo (owner/repo) from remote URL
-  REPO=$(echo "$REMOTE_URL" | sed -E 's/.*[:\\/]([^\\/]+\\/[^\\/]+)(\.git)?$/\1/' | sed 's/\.git$//')
+  # Use # as delimiter for better compatibility with BSD/GNU sed
+  REPO=$(echo "$REMOTE_URL" | sed -E 's#.*[:/]([^/]+/[^/]+)(\.git)?$#\1#' | sed 's/\.git$//')
 
   echo ""
   print_info "GitHub Label を初期化中..."
@@ -373,16 +380,17 @@ setup_github_project() {
 
   print_info "Repository: $REPO_OWNER/$REPO_NAME"
 
-  # Get owner node ID
+  # Get owner node ID (supports both User and Organization)
   OWNER_ID=$(gh api graphql -f query='
     query($login: String!) {
-      user(login: $login) {
+      repositoryOwner(login: $login) {
         id
       }
     }
-  ' -f login="$REPO_OWNER" --jq '.data.user.id' 2>/dev/null || echo "")
+  ' -f login="$REPO_OWNER" --jq '.data.repositoryOwner.id' 2>/dev/null)
 
-  if [[ -z "$OWNER_ID" ]]; then
+  # Enhanced validation to detect error responses
+  if [[ -z "$OWNER_ID" ]] || [[ "$OWNER_ID" == "null" ]] || [[ "$OWNER_ID" == "{"* ]]; then
     print_warning "Owner ID を取得できません。GitHub Project のセットアップをスキップします。"
     return
   fi
