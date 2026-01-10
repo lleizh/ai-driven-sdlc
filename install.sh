@@ -428,36 +428,67 @@ setup_github_project() {
     return
   fi
 
-  # Create Project
+  # Check if project already exists
   PROJECT_TITLE="SDLC - $REPO_NAME"
-  print_info "Project を作成中: $PROJECT_TITLE"
+  print_info "既存の Project を確認中: $PROJECT_TITLE"
 
-  CREATE_RESULT=$(gh api graphql -f query='
-    mutation($ownerId: ID!, $title: String!) {
-      createProjectV2(input: {
-        ownerId: $ownerId
-        title: $title
-      }) {
-        projectV2 {
-          id
-          number
-          url
+  EXISTING_PROJECT=$(gh api graphql -f query='
+    query($login: String!) {
+      repositoryOwner(login: $login) {
+        ... on ProjectV2Owner {
+          projectsV2(first: 100) {
+            nodes {
+              id
+              number
+              title
+              url
+            }
+          }
         }
       }
     }
-  ' -f ownerId="$OWNER_ID" -f title="$PROJECT_TITLE" 2>&1)
+  ' -f login="$REPO_OWNER" --jq ".data.repositoryOwner.projectsV2.nodes[] | select(.title == \"$PROJECT_TITLE\")" 2>/dev/null)
 
-  if echo "$CREATE_RESULT" | grep -q "errors"; then
-    print_warning "Project 作成に失敗しました。権限を確認してください。"
-    echo "$CREATE_RESULT" | jq -r '.errors[0].message' 2>/dev/null || echo "$CREATE_RESULT"
-    return
+  if [[ -n "$EXISTING_PROJECT" ]]; then
+    # Use existing project
+    PROJECT_ID=$(echo "$EXISTING_PROJECT" | jq -r '.id')
+    PROJECT_NUMBER=$(echo "$EXISTING_PROJECT" | jq -r '.number')
+    PROJECT_URL=$(echo "$EXISTING_PROJECT" | jq -r '.url')
+
+    print_success "既存の Project を使用します: $PROJECT_URL"
+    print_info "Project ID: $PROJECT_ID"
+    print_info "Project Number: #$PROJECT_NUMBER"
+  else
+    # Create new project
+    print_info "Project を作成中: $PROJECT_TITLE"
+
+    CREATE_RESULT=$(gh api graphql -f query='
+      mutation($ownerId: ID!, $title: String!) {
+        createProjectV2(input: {
+          ownerId: $ownerId
+          title: $title
+        }) {
+          projectV2 {
+            id
+            number
+            url
+          }
+        }
+      }
+    ' -f ownerId="$OWNER_ID" -f title="$PROJECT_TITLE" 2>&1)
+
+    if echo "$CREATE_RESULT" | grep -q "errors"; then
+      print_warning "Project 作成に失敗しました。権限を確認してください。"
+      echo "$CREATE_RESULT" | jq -r '.errors[0].message' 2>/dev/null || echo "$CREATE_RESULT"
+      return
+    fi
+
+    PROJECT_ID=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.id')
+    PROJECT_NUMBER=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.number')
+    PROJECT_URL=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.url')
+
+    print_success "Project 作成成功: $PROJECT_URL"
   fi
-
-  PROJECT_ID=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.id')
-  PROJECT_NUMBER=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.number')
-  PROJECT_URL=$(echo "$CREATE_RESULT" | jq -r '.data.createProjectV2.projectV2.url')
-
-  print_success "Project 作成成功: $PROJECT_URL"
 
   # Update default Status field (3 fields total)
   # Note: Modify default "Status" field options with SDLC values (FEATURE-20)
