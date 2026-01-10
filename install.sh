@@ -87,7 +87,7 @@ done
 
 # Detect if running via pipe (curl | bash)
 PIPED_INSTALL=false
-if [[ ! -t 0 ]] && [[ "${BASH_SOURCE[0]}" =~ ^/dev/fd/ ]]; then
+if [[ -z "${BASH_SOURCE[0]}" ]] || [[ "${BASH_SOURCE[0]}" == "bash" ]]; then
     PIPED_INSTALL=true
 fi
 
