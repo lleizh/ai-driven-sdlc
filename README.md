@@ -445,28 +445,6 @@ cd your-project
 - `--update` - 既存ファイルごとに上書き確認
 - `--dry-run` - 実行せず確認のみ
 
-### インストール内容
-
-- `.github/ISSUE_TEMPLATE/` - Issue テンプレート
-- `.github/workflows/` - GitHub Actions（自動同期、ラベル管理）
-- `.claude/commands/` - Claude Code コマンド
-- `sdlc-cli` - 管理ツール
-- `sdlc/templates/` - ドキュメントテンプレート
-- `AI_SDLC.md` - プロセス定義
-
-### GitHub Project セットアップ
-
-`install.sh` は自動的に以下をセットアップします：
-
-1. **GitHub Labels** - feature, bug, risk:high, design-review, implementation など
-2. **GitHub Projects v2** - プロジェクト名: `SDLC - {repo名}`
-   - カスタムフィールド：Status, Feature ID, Risk Level, Decision Status
-3. **`.sdlc-config`** - Project ID とフィールド ID を保存
-
-**既存 Project がある場合**:
-- 同名の Project が見つかった場合、既存のものを使用するか新規作成するか選択できます（対話モード）
-- リモートインストール時は自動的に既存 Project を使用します
-
 ---
 
 ## ライセンス
